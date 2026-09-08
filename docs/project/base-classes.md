@@ -1,0 +1,21 @@
+# Classi base
+
+## Config
+- AppConfig → legge app.* da application.yml (default-judge-prompt)
+- ModelFactory → costruisce ChatLanguageModel per ModelConfig (OLLAMA / OPENAI_COMPATIBLE)
+
+## Service
+- ModelConfigService → CRUD + activate (isActive)
+- TestSuiteService → CRUD suite + testCases + paramSweeps (cascade)
+- TestRunnerService → runSuite / runAll (cartesian product + evaluation)
+
+## Domain
+- ModelConfig → provider, baseUrl, modelName, isActive
+- TestSuite → expectedOutput, judgeModelId, judgePrompt
+- TestCase → systemPrompt (per-case), userPrompt, sortOrder
+- ParamSweep → paramName, values (JSON array)
+- RunResult → paramsJson, rawOutput, score, evaluationType, passed
+
+## Regola
+- ModelFactory → mai parametri nel builder, sempre a call-time
+- TestRunnerService → max 1 run concorrente per suite (ConcurrentHashMap lock)

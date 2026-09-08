@@ -1,0 +1,37 @@
+quarkus:
+  datasource:
+    db-kind: h2
+    jdbc:
+      url: "jdbc:h2:file:./data/llmlab;AUTO_SERVER=TRUE"
+    username: sa
+    password: ""
+    devservices:
+      enabled: false
+  hibernate:
+    orm:
+      ddl-auto: none
+  liquibase:
+    change-log: "db/changelog/db.changelog-master.yaml"
+    migrate-at-start: true
+
+app:
+  default-judge-prompt: |
+    You are an impartial judge. Score the assistant's response from 0.0 to 1.0.
+
+    Task given to the assistant:
+    <task>{{task}}</task>
+
+    Expected output (if any):
+    <expected>{{expected}}</expected>
+
+    Assistant's response:
+    <response>{{response}}</response>
+
+    Score criteria:
+    - 1.0 = fully correct, complete, well-structured
+    - 0.7-0.9 = mostly correct, minor issues
+    - 0.4-0.6 = partially correct, notable gaps
+    - 0.1-0.3 = mostly wrong or incomplete
+    - 0.0 = completely wrong or nonsensical
+
+    Respond with ONLY a JSON object: {"score": <float>, "reason": "<one sentence>"}

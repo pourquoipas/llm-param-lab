@@ -1,0 +1,23 @@
+# Build output
+target/
+*.class
+
+# H2 runtime database (file-based, created on startup)
+data/
+
+# Logs
+*.log
+logs/
+
+# IDE / editor
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db

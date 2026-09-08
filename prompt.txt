@@ -1,0 +1,538 @@
+# Project: llm-param-lab (session id: 1675bed8-ba0a-471d-ad23-800c5cf4c746)
+
+Build a Java 21 + Quarkus 3 + Langchain4j 1.x project called `llm-param-lab`.
+It's a tool to test a local (or remote) LLM across multiple prompts and
+parameter combinations, then evaluate results either against an expected
+output or via a second "judge" LLM.
+
+---
+
+## 1. Dependencies (pom.xml)
+
+- quarkus-bom 3.15+
+- quarkus-rest (JAX-RS)
+- quarkus-hibernate-orm-h2 (H2 file-based persistence in ./data)
+- quarkus-liquibase (for schema versioning)
+- langchain4j 1.x (core)
+- langchain4j-open-ai (for remote OpenAI-compatible endpoints)
+- langchain4j-ollama (for local Ollama)
+- quarkus-logging-jul
+- jackson (for JSON)
+- snakeyaml (for YAML config loading)
+
+---
+
+## 2. Domain Model (Hibernate entities)
+
+### ModelConfig
+- id (Long, auto)
+- name (String, unique) — e.g. "my-local-llama"
+- provider (enum: OLLAMA, OPENAI_COMPATIBLE)
+- baseUrl (String) — e.g. "http://localhost:11434" or "https://api.openai.com/v1"
+- apiKey (String, nullable)
+- modelName (String) — e.g. "llama3.1" or "gpt-4o-mini"
+- isActive (boolean) — which one is the model under test
+
+### TestSuite
+- id (Long, auto)
+- name (String)
+- description (String, nullable)
+- expectedOutput (String, nullable) — if set, results are compared to this
+- expectedOutputMode (enum: EXACT, CONTAINS, REGEX, NONE)
+- judgeModelId (Long, FK to ModelConfig, nullable) — if no expectedOutput, use this model as judge
+- judgePrompt (String, nullable) — custom judge prompt; if null, use a default rubric
+- createdAt, updatedAt
+
+NOTE: systemPrompt is NOT at suite level. Each TestCase carries its own
+systemPrompt. This allows testing different system prompts (agent personas,
+tool definitions, etc.) against the same set of user prompts and params.
+
+### TestCase
+- id (Long, auto)
+- suiteId (Long, FK to TestSuite)
+- name (String) — label for this test case
+- systemPrompt (String, nullable) — the system prompt for THIS test case.
+  If null, no system message is sent (user prompt only).
+- userPrompt (String)
+- sortOrder (int)
+
+### ParamSweep
+- id (Long, auto)
+- suiteId (Long, FK to TestSuite)
+- paramName (String) — e.g. "temperature", "topP", "maxTokens"
+- values (String) — JSON array of values, e.g. "[0.3, 0.5, 1.0]"
+  (stored as JSON string; parsed at runtime)
+
+### RunResult
+- id (Long, auto)
+- suiteId (Long, FK to TestSuite)
+- testCaseId (Long, FK to TestCase)
+- modelConfigId (Long, FK to ModelConfig)
+- paramsJson (String) — the exact parameter combo used, e.g. {"temperature":0.5,"topP":0.9}
+- rawOutput (String, CLOB)
+- latencyMs (Long)
+- tokensIn (Integer, nullable)
+- tokensOut (Integer, nullable)
+- score (Double, nullable) — 0.0 to 1.0
+- scoreReason (String, nullable) — judge's explanation
+- evaluationType (enum: EXACT_MATCH, CONTAINS, REGEX_MATCH, JUDGE_LLM, SKIPPED)
+- passed (boolean)
+- createdAt
+
+---
+
+## 3. Database Versioning (Liquibase)
+
+Use Liquibase for all schema management. Do NOT use Hibernate ddl-auto.
+
+### Configuration (application.yml)
+
+```yaml
+quarkus:
+  datasource:
+    db-kind: h2
+    jdbc-url: "jdbc:h2:file:./data/llmlab;AUTO_SERVER=TRUE"
+    username: sa
+    password: ""
+  hibernate:
+    ddl-auto: none
+  liquibase:
+    changelog: "db/changelog/db.changelog-master.yaml"
+```
+
+### Changelog structure
+
+Create these files:
+
+`src/main/resources/db/changelog/db.changelog-master.yaml`
+
+```yaml
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-initial-schema.yaml
+  # Future changes go here, one file per change:
+  # - include:
+  #     file: db/changelog/changes/002-add-field-x.yaml
+```
+
+`src/main/resources/db/changelog/changes/001-initial-schema.yaml`
+
+This file creates ALL tables in the correct order (respecting FKs):
+
+Tables to create (in this order):
+1. model_config
+   - id BIGINT AUTO_INCREMENT PRIMARY KEY
+   - name VARCHAR(255) NOT NULL UNIQUE
+   - provider VARCHAR(50) NOT NULL
+   - base_url VARCHAR(500) NOT NULL
+   - api_key VARCHAR(500)
+   - model_name VARCHAR(255) NOT NULL
+   - is_active BOOLEAN DEFAULT FALSE
+
+2. test_suite
+   - id BIGINT AUTO_INCREMENT PRIMARY KEY
+   - name VARCHAR(255) NOT NULL
+   - description VARCHAR(1000)
+   - expected_output CLOB
+   - expected_output_mode VARCHAR(20) DEFAULT 'NONE'
+   - judge_model_id BIGINT
+   - judge_prompt CLOB
+   - created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   - updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   - FOREIGN KEY (judge_model_id) REFERENCES model_config(id)
+
+3. test_case
+   - id BIGINT AUTO_INCREMENT PRIMARY KEY
+   - suite_id BIGINT NOT NULL
+   - name VARCHAR(255) NOT NULL
+   - system_prompt CLOB
+   - user_prompt CLOB NOT NULL
+   - sort_order INT DEFAULT 0
+   - FOREIGN KEY (suite_id) REFERENCES test_suite(id) ON DELETE CASCADE
+
+4. param_sweep
+   - id BIGINT AUTO_INCREMENT PRIMARY KEY
+   - suite_id BIGINT NOT NULL
+   - param_name VARCHAR(100) NOT NULL
+   - values VARCHAR(500) NOT NULL
+   - FOREIGN KEY (suite_id) REFERENCES test_suite(id) ON DELETE CASCADE
+
+5. run_result
+   - id BIGINT AUTO_INCREMENT PRIMARY KEY
+   - suite_id BIGINT NOT NULL
+   - test_case_id BIGINT NOT NULL
+   - model_config_id BIGINT
+   - params_json VARCHAR(500)
+   - raw_output CLOB
+   - latency_ms BIGINT
+   - tokens_in INT
+   - tokens_out INT
+   - score DOUBLE
+   - score_reason VARCHAR(1000)
+   - evaluation_type VARCHAR(30)
+   - passed BOOLEAN
+   - created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   - FOREIGN KEY (suite_id) REFERENCES test_suite(id) ON DELETE CASCADE
+   - FOREIGN KEY (test_case_id) REFERENCES test_case(id) ON DELETE CASCADE
+   - FOREIGN KEY (model_config_id) REFERENCES model_config(id)
+
+IMPORTANT: Every future schema change must be a NEW yaml file in
+`db/changelog/changes/` (e.g. 002-add-foo.yaml) and a new include line
+in `db.changelog-master.yaml`. Never modify 001-initial-schema.yaml.
+This ensures existing databases upgrade without data loss.
+
+---
+
+## 4. Configuration (application.yml)
+
+```yaml
+quarkus:
+  datasource:
+    db-kind: h2
+    jdbc-url: "jdbc:h2:file:./data/llmlab;AUTO_SERVER=TRUE"
+    username: sa
+    password: ""
+  hibernate:
+    ddl-auto: none
+  liquibase:
+    changelog: "db/changelog/db.changelog-master.yaml"
+
+app:
+  default-judge-prompt: |
+    You are an impartial judge. Score the assistant's response from 0.0 to 1.0.
+
+    Task given to the assistant:
+    <task>{{task}}</task>
+
+    Expected output (if any):
+    <expected>{{expected}}</expected>
+
+    Assistant's response:
+    <response>{{response}}</response>
+
+    Score criteria:
+    - 1.0 = fully correct, complete, well-structured
+    - 0.7-0.9 = mostly correct, minor issues
+    - 0.4-0.6 = partially correct, notable gaps
+    - 0.1-0.3 = mostly wrong or incomplete
+    - 0.0 = completely wrong or nonsensical
+
+    Respond with ONLY a JSON object: {"score": <float>, "reason": "<one sentence>"}
+```
+
+---
+
+## 5. Model Factory (core service)
+
+Create a `ModelFactory` service that, given a `ModelConfig`, returns a
+`dev.langchain4j.model.chat.ChatLanguageModel` instance:
+
+- If provider == OLLAMA:
+  Use `OllamaChatModel.builder().baseUrl(...).modelName(...).build()`
+
+- If provider == OPENAI_COMPATIBLE:
+  Use `OpenAiChatModel.builder().baseUrl(...).apiKey(...).modelName(...).build()`
+
+IMPORTANT: The temperature/topP/maxTokens should NOT be baked into the model
+builder. Instead, pass them at call time via `ChatRequest` /
+`ChatRequestParameters` so the same model instance can be reused across
+different parameter combinations.
+
+In Langchain4j 1.x, use:
+
+```java
+ChatRequest chatRequest = ChatRequest.builder()
+    .messages(messages)
+    .parameters(ChatRequestParameters.builder()
+        .temperature(0.5)
+        .topP(0.9)
+        .maxOutputTokens(1024)
+        .build())
+    .build();
+ChatResponse response = model.chat(chatRequest);
+```
+
+---
+
+## 6. Test Runner (core logic)
+
+Create a `TestRunnerService` with method:
+
+```java
+public List<RunResult> runSuite(Long suiteId)
+```
+
+Logic:
+1. Load TestSuite, its TestCases (each with its own systemPrompt),
+   its ParamSweeps, and the active ModelConfig.
+2. Build the Cartesian product of all parameter values.
+   Example: temperature [0.3, 0.5, 1.0] times topP [0.8, 0.95] = 6 combos.
+3. For each TestCase times each param combo:
+   a. Build messages:
+      - If testCase.systemPrompt is not null and not empty:
+        add SystemMessage(testCase.systemPrompt)
+      - Always add UserMessage(testCase.userPrompt)
+   b. Call the model under test with the specific params.
+   c. Measure latency, capture token counts from response metadata.
+   d. Evaluate:
+      - If suite.expectedOutput is not null:
+        - EXACT: trim and equals
+        - CONTAINS: output contains expected (case-insensitive)
+        - REGEX: output matches pattern
+        - score = 1.0 if pass, 0.0 if fail
+      - Else if suite.judgeModelId is not null:
+        - Build judge prompt (from suite.judgePrompt or default from config)
+        - Replace {{task}} with testCase.userPrompt
+        - Replace {{expected}} with suite.expectedOutput or "N/A"
+        - Replace {{response}} with the model's raw output
+        - Call judge model
+        - Parse JSON response to get score + reason
+        - If JSON parse fails, score = null, reason = "judge parse error: ..."
+   e. Persist RunResult row.
+4. Return all results.
+
+Add a `runAll()` method that iterates all suites.
+
+---
+
+## 7. REST API (JAX-RS)
+
+### ModelConfig
+- GET    /api/models
+- POST   /api/models
+- PUT    /api/models/{id}
+- DELETE /api/models/{id}
+- POST   /api/models/{id}/activate  (sets isActive=true, others false)
+
+### TestSuite
+- GET    /api/suites
+- POST   /api/suites  (body includes nested testCases[] and paramSweeps[])
+- GET    /api/suites/{id}  (includes testCases, paramSweeps, latest results)
+- PUT    /api/suites/{id}
+- DELETE /api/suites/{id}
+
+### Run
+- POST   /api/suites/{id}/run        triggers runSuite, returns List of RunResult
+- POST   /api/run-all                triggers runAll
+- GET    /api/results?suiteId={id}&testCaseId={id}  filter results
+- GET    /api/results/summary?suiteId={id}
+  returns a summary: for each testCase, the best param combo (highest avg score),
+  table of all combos with avg score, min/max latency
+
+### Health
+- GET /q/health (built-in)
+
+---
+
+## 8. Frontend UI (static HTML/CSS/JS)
+
+Place all frontend files under:
+`src/main/resources/META-INF/resources/`
+
+This is Quarkus's default location for static resources. They will be
+served at the root path (e.g. `http://localhost:8080/` serves `index.html`).
+
+### File: index.html
+
+A single-page application with 3 tabs: **Models**, **Suites**, **Results**.
+
+Layout structure:
+- Top bar: project title "LLM Param Lab" + active model indicator (green dot + name)
+- Tab navigation: Models | Suites | Results
+- Content area: switches based on active tab
+
+#### Tab 1: Models
+- Table with columns: Name, Provider, Base URL, Model, Active (badge), Actions
+- "Add Model" button opens a form (modal or inline panel) with fields:
+  name, provider (select: OLLAMA / OPENAI_COMPATIBLE), baseUrl, apiKey, modelName
+- Each row has: Edit (opens pre-filled form), Delete (confirm), Activate (radio-style)
+- Active model shown with a green "ACTIVE" badge
+
+#### Tab 2: Suites
+- Left panel: list of suites (click to select, shows detail)
+- Right panel (detail view for selected suite):
+  - Suite fields: name, description, expectedOutput (textarea),
+    expectedOutputMode (select: EXACT / CONTAINS / REGEX / NONE),
+    judgeModel (select from models), judgePrompt (textarea)
+  - TestCases section: list with add/edit/delete. Each case has:
+    name, systemPrompt (textarea, placeholder "System prompt for this test case (optional)"),
+    userPrompt (textarea), sortOrder
+  - ParamSweeps section: list with add/edit/delete. Each sweep has:
+    paramName, values (comma-separated input, stored as JSON array)
+  - "Save Suite" button (POST or PUT depending on new/existing)
+  - "Run Suite" button (POST /api/suites/{id}/run) — shows a loading spinner,
+    on completion shows a toast "Run complete: N results" and auto-switches to Results tab
+  - "Delete Suite" button (confirm)
+- "New Suite" button at top of left panel
+
+#### Tab 3: Results
+- Filter bar: suite selector (dropdown), optional test case filter
+- Summary card: for the selected suite, show "Best param combo" (highest avg score)
+  with the actual values, e.g. "temperature=0.3, topP=0.9 — avg score 0.87"
+- Results table with columns:
+  Test Case | Params | Score (colored: green >= 0.7, yellow 0.4-0.7, red < 0.4) |
+  Passed (checkmark/cross) | Latency (ms) | Tokens In/Out | Eval Type | Date
+- Clicking a row expands it to show: rawOutput (in a pre tag), scoreReason
+- "Run All" button at top right
+
+### File: app.js
+
+Vanilla JavaScript (no framework, no build step). Use `fetch()` for all API calls.
+
+Key patterns:
+- State object: `let state = { activeTab: 'models', models: [], suites: [], selectedSuiteId: null, results: [] }`
+- `init()` on DOMContentLoaded: load models + suites, render
+- Tab switching: show/hide sections, trigger data load for that tab
+- CRUD forms: build DOM dynamically or use `<template>` elements
+- Run button: `fetch('/api/suites/' + id + '/run', {method:'POST'})` with
+  `disable button + show spinner` during await, then re-render results
+- Toast notifications: simple fixed-position div, auto-hide after 3s
+- Error handling: if fetch returns non-2xx, show toast with error message
+- No external dependencies (no CDN, no npm). Everything self-contained.
+
+### File: styles.css
+
+Design: clean, minimal, dark theme.
+- Font: system-ui, -apple-system, sans-serif
+- Background: #1a1a2e
+- Cards/panels: #16213e
+- Text: #e0e0e0
+- Accent: #4fc3f7 (light blue)
+- Success: #66bb6a, Warning: #ffa726, Error: #ef5350
+- Tables: striped rows, hover highlight
+- Buttons: rounded, flat, accent color on hover
+- Modals: centered, backdrop blur
+- Responsive: min-width 1024px target (it's a dev tool, desktop-first)
+- Score badges: pill-shaped, colored background
+- Spinner: CSS-only (border animation)
+- Code/pre blocks: monospace, dark bg, scrollable, max-height 300px
+
+---
+
+## 9. Seed Data
+
+Use a Quarkus startup event (or a Liquibase data load in the initial
+changelog) to create:
+
+2 model configs:
+- "local-llama" to OLLAMA, baseUrl=http://localhost:11434, modelName=llama3.1
+- "remote-gpt" to OPENAI_COMPATIBLE, baseUrl=https://api.openai.com/v1, modelName=gpt-4o-mini
+
+1 example TestSuite:
+- name: "JSON extraction test"
+- systemPrompt: (not at suite level anymore)
+- expectedOutput: null
+- judgeModelId: points to "remote-gpt"
+- testCases (each with its OWN systemPrompt):
+  - name: "extract-name-simple"
+    systemPrompt: "You are a data extraction assistant. Always respond with valid JSON only."
+    userPrompt: "Extract the name from: 'Hi, I'm Marco Rossi'. Return JSON: {\"name\": \"...\"}"
+  - name: "extract-name-agent"
+    systemPrompt: "You are an expert NLP agent. You extract structured data from unstructured text. Rules: 1) Always output valid JSON. 2) If a field is missing, use null. 3) Do not add commentary."
+    userPrompt: "Extract the name from: 'Hi, I'm Marco Rossi'. Return JSON: {\"name\": \"...\"}"
+  - name: "extract-multi"
+    systemPrompt: "You are a data extraction assistant. Always respond with valid JSON only."
+    userPrompt: "Extract names and emails from: 'Contact: Anna at a@b.com, Luca at l@c.com'. Return JSON array."
+- paramSweeps:
+  - temperature: [0.0, 0.3, 0.7]
+  - topP: [0.9, 0.95]
+
+This seed demonstrates the key feature: same user prompt, different
+system prompts, different params — all in one run.
+
+---
+
+## 10. Project Structure
+
+```
+src/main/java/com/example/llmlab/
+  LlmParamLabApp.java
+  config/
+    AppConfig.java          (reads app.* from yml)
+    ModelFactory.java
+  domain/
+    ModelConfig.java
+    TestSuite.java
+    TestCase.java
+    ParamSweep.java
+    RunResult.java
+  repository/
+    ModelConfigRepository.java
+    TestSuiteRepository.java
+    TestCaseRepository.java
+    ParamSweepRepository.java
+    RunResultRepository.java
+  service/
+    ModelConfigService.java
+    TestSuiteService.java
+    TestRunnerService.java
+  rest/
+    ModelConfigResource.java
+    TestSuiteResource.java
+    ResultResource.java
+  dto/
+    SuiteCreateRequest.java
+    SuiteResponse.java
+    RunSummaryResponse.java
+    JudgeResponse.java
+
+src/main/resources/
+  db/changelog/
+    db.changelog-master.yaml
+    changes/
+      001-initial-schema.yaml
+  META-INF/resources/
+    index.html
+    app.js
+    styles.css
+  application.yml
+```
+
+---
+
+## 11. Important Implementation Notes
+
+- Use quarkus:dev mode for development. Liquibase auto-runs on startup.
+- All REST endpoints return JSON (Jackson).
+- The runSuite endpoint should be SYNCHRONOUS (blocking) for simplicity.
+  The user will see results when the call returns.
+- For the judge call, parse the LLM response as JSON. Be lenient:
+  strip markdown code fences, trim, then parse.
+- Token counts: Langchain4j ChatResponse.metadata() gives
+  TokenUsage with inputTokens/outputTokens if the provider supports it.
+  If null, store null.
+- Latency: wrap the model.chat() call with System.nanoTime().
+- The Cartesian product: use a simple recursive or iterative combinator.
+  Store the resulting map as a JSON string in RunResult.paramsJson.
+- Add a simple in-memory rate limiter: max 1 concurrent run per suite
+  (use a ConcurrentHashMap as a lock).
+- The UI is served from META-INF/resources. No separate frontend server needed.
+  In dev mode, Quarkus hot-reloads static files.
+- The "Run Suite" button in the UI should disable itself and show a spinner
+  while the POST is in-flight (it can take 30s+ for multiple param combos).
+- CORS is not needed since the UI and API are on the same origin.
+- Liquibase: NEVER modify an existing changelog file. Always add a new file
+  for schema changes. The master changelog includes them in order.
+
+---
+
+## 12. README.md
+
+Include:
+- What the tool does (2 sentences)
+- Prerequisites: Java 21, Ollama running locally (optional), Maven 3.9+
+- Quick start:
+  1. mvn quarkus:dev
+  2. Open http://localhost:8080 in a browser
+  3. Add a model (Models tab)
+  4. Create a suite (Suites tab)
+  5. Click "Run Suite"
+  6. Check results (Results tab)
+- Schema versioning: explain that all DB changes go through Liquibase
+  changelogs in db/changelog/changes/. To add a column:
+  1. Create a new yaml file (e.g. 002-add-foo.yaml)
+  2. Add an include line to db.changelog-master.yaml
+  3. Restart — Liquibase applies the change, existing data is preserved
+- API reference: list of all endpoints with example curl commands
+- Example request bodies for POST /api/models and POST /api/suites
+

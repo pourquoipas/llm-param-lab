@@ -1,0 +1,254 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-model-config
+      author: llmlab
+      changes:
+        - createTable:
+            tableName: model_config
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_model_config
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_model_config_name
+              - column:
+                  name: provider
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: base_url
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: api_key
+                  type: VARCHAR(500)
+              - column:
+                  name: model_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+
+  - changeSet:
+      id: 001-create-test-suite
+      author: llmlab
+      changes:
+        - createTable:
+            tableName: test_suite
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_test_suite
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: VARCHAR(1000)
+              - column:
+                  name: expected_output
+                  type: CLOB
+              - column:
+                  name: expected_output_mode
+                  type: VARCHAR(20)
+                  defaultValue: 'NONE'
+              - column:
+                  name: judge_model_id
+                  type: BIGINT
+              - column:
+                  name: judge_prompt
+                  type: CLOB
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: test_suite
+            baseColumnNames: judge_model_id
+            referencedTableName: model_config
+            referencedColumnNames: id
+            constraintName: fk_test_suite_judge_model
+
+  - changeSet:
+      id: 001-create-test-case
+      author: llmlab
+      changes:
+        - createTable:
+            tableName: test_case
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_test_case
+              - column:
+                  name: suite_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: system_prompt
+                  type: CLOB
+              - column:
+                  name: user_prompt
+                  type: CLOB
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sort_order
+                  type: INT
+                  defaultValueNumeric: 0
+        - addForeignKeyConstraint:
+            baseTableName: test_case
+            baseColumnNames: suite_id
+            referencedTableName: test_suite
+            referencedColumnNames: id
+            constraintName: fk_test_case_suite
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 001-create-param-sweep
+      author: llmlab
+      changes:
+        - createTable:
+            tableName: param_sweep
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_param_sweep
+              - column:
+                  name: suite_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: param_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: values
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: param_sweep
+            baseColumnNames: suite_id
+            referencedTableName: test_suite
+            referencedColumnNames: id
+            constraintName: fk_param_sweep_suite
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 001-create-run-result
+      author: llmlab
+      changes:
+        - createTable:
+            tableName: run_result
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_run_result
+              - column:
+                  name: suite_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: test_case_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: model_config_id
+                  type: BIGINT
+              - column:
+                  name: params_json
+                  type: VARCHAR(500)
+              - column:
+                  name: raw_output
+                  type: CLOB
+              - column:
+                  name: latency_ms
+                  type: BIGINT
+              - column:
+                  name: tokens_in
+                  type: INT
+              - column:
+                  name: tokens_out
+                  type: INT
+              - column:
+                  name: score
+                  type: DOUBLE
+              - column:
+                  name: score_reason
+                  type: VARCHAR(1000)
+              - column:
+                  name: evaluation_type
+                  type: VARCHAR(30)
+              - column:
+                  name: passed
+                  type: BOOLEAN
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: run_result
+            baseColumnNames: suite_id
+            referencedTableName: test_suite
+            referencedColumnNames: id
+            constraintName: fk_run_result_suite
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: run_result
+            baseColumnNames: test_case_id
+            referencedTableName: test_case
+            referencedColumnNames: id
+            constraintName: fk_run_result_test_case
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: run_result
+            baseColumnNames: model_config_id
+            referencedTableName: model_config
+            referencedColumnNames: id
+            constraintName: fk_run_result_model_config
