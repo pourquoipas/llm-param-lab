@@ -7,7 +7,8 @@
 - *Entity (domain/) → entity JPA
 - *Request/*Response (dto/) → payload REST
 - *Exception (service/) → eccezioni API con status HTTP (base ApiException)
-- META-INF/resources/*.html|js|css → frontend statico
+- META-INF/resources/*.html|js|css → frontend statico (SPA: index.html + styles.css + app.js)
+- SPA app.js → state object + api() fetch wrapper (non-2xx → toast+throw) + switchTab() + openModal() + toast()
 
 ## Config (application.yml)
 - datasource → quarkus.datasource.jdbc.url (nested under jdbc), db-kind, username, password

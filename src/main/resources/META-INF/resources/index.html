@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Param Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-title">LLM Param Lab</div>
+    <div class="topbar-model" id="active-model">
+      <span class="dot" id="active-model-dot"></span>
+      <span id="active-model-name">loading…</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="models">Models</button>
+    <button class="tab" data-tab="suites">Suites</button>
+    <button class="tab" data-tab="results">Results</button>
+  </nav>
+
+  <main class="content">
+    <section id="tab-models" class="tab-panel active"></section>
+    <section id="tab-suites" class="tab-panel"></section>
+    <section id="tab-results" class="tab-panel"></section>
+  </main>
+
+  <!-- Reusable modal shell (cloned per open) -->
+  <template id="modal-template">
+    <div class="modal-backdrop">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title"></h3>
+          <button class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body"></div>
+        <div class="modal-footer"></div>
+      </div>
+    </div>
+  </template>
+  <div id="modal-root"></div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <div id="spinner-overlay" class="spinner-overlay hidden">
+    <div class="spinner"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

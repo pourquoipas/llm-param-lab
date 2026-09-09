@@ -264,14 +264,20 @@ Notes:
 
 ---
 
-## Step 11 — Frontend: layout + theme
+## Step 11 — Frontend: layout + theme ✅
 **Goal:** shell of the SPA.
 
-- [ ] `META-INF/resources/index.html` — top bar (title + active model indicator), 3 tabs (Models/Suites/Results), content sections, `<template>`-based modals for forms, toast container, spinner.
-- [ ] `META-INF/resources/styles.css` — dark theme per prompt.txt §8 (colors, striped tables, pill badges, modal with backdrop blur, CSS spinner, pre blocks max-height 300px).
-- [ ] `META-INF/resources/app.js` — skeleton: `state` object, `init()`, tab switching, `api()` fetch wrapper (error toast on non-2xx), toast helper, render helpers.
+- [x] `META-INF/resources/index.html` — top bar (title + active model indicator), 3 tabs (Models/Suites/Results), content sections, `<template>`-based modals for forms, toast container, spinner.
+- [x] `META-INF/resources/styles.css` — dark theme per prompt.txt §8 (colors, striped tables, pill badges, modal with backdrop blur, CSS spinner, pre blocks max-height 300px).
+- [x] `META-INF/resources/app.js` — skeleton: `state` object, `init()`, tab switching, `api()` fetch wrapper (error toast on non-2xx), toast helper, render helpers.
 
-**Verify:** `mvn quarkus:dev` → open `http://localhost:8080/` — tabs switch, styling correct, no console errors (API calls will 404/500 until APIs done — stub data OK).
+**Verify:** `mvn quarkus:dev` → open `http://localhost:8080/` — tabs switch, styling correct, no console errors (API calls will 404/500 until APIs done — stub data OK). ✅
+
+Notes:
+- `index.html` — top bar (title + `#active-model` dot/name), `.tabs` nav, 3 `.tab-panel` sections, `#modal-template` + `#modal-root`, `#toast-container`, `#spinner-overlay`.
+- `styles.css` — CSS vars per §8 palette; striped/hover tables, pill badges (`.badge-score` + score-high/mid/low), modal backdrop blur, CSS spinner, `pre` max-height 300px.
+- `app.js` — `state`, `api()` (JSON body auto-serialize, non-2xx → toast + throw, 204 → null), `toast()`, `showSpinner/hideSpinner`, `openModal(title, bodyHtml)`, `switchTab()`, `renderActiveModel()`, placeholder `renderModels/renderSuites/renderResults` (Steps 12–14).
+- Verified: `package` + `java -jar` → `/`, `/styles.css`, `/app.js` all 200; `node --check app.js` OK; `/api/models` + `/api/suites` 200.
 
 ---
 
@@ -353,7 +359,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 8 | REST: Suites | ✅ done |
 | 9 | REST: Run + Results | ✅ done |
 | 10 | Seed data | ✅ done |
-| 11 | Frontend: layout + theme | ⬜ not started |
+| 11 | Frontend: layout + theme | ✅ done |
 | 12 | Frontend: Models tab | ⬜ not started |
 | 13 | Frontend: Suites tab | ⬜ not started |
 | 14 | Frontend: Results tab | ⬜ not started |
