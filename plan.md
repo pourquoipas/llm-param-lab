@@ -299,16 +299,22 @@ Notes:
 
 ---
 
-## Step 13 — Frontend: Suites tab
+## Step 13 — Frontend: Suites tab ✅
 **Goal:** full suite editing.
 
-- [ ] Left: suite list + "New Suite". Right: detail editor.
-- [ ] Suite fields: name, description, expectedOutput (textarea), expectedOutputMode (select), judgeModel (select), judgePrompt (textarea).
-- [ ] TestCases section: add/edit/delete rows (name, systemPrompt textarea w/ placeholder, userPrompt textarea, sortOrder).
-- [ ] ParamSweeps section: add/edit/delete rows (paramName, comma-separated values input → JSON array).
-- [ ] "Save Suite" (POST new / PUT existing), "Run Suite" (POST run, disable button + spinner, toast "Run complete: N results", auto-switch to Results), "Delete Suite" (confirm).
+- [x] Left: suite list + "New Suite". Right: detail editor.
+- [x] Suite fields: name, description, expectedOutput (textarea), expectedOutputMode (select), judgeModel (select), judgePrompt (textarea).
+- [x] TestCases section: add/edit/delete rows (name, systemPrompt textarea w/ placeholder, userPrompt textarea, sortOrder).
+- [x] ParamSweeps section: add/edit/delete rows (paramName, comma-separated values input → JSON array).
+- [x] "Save Suite" (POST new / PUT existing), "Run Suite" (POST run, disable button + spinner, toast "Run complete: N results", auto-switch to Results), "Delete Suite" (confirm).
 
-**Verify:** create the example suite via UI, save, re-open (data intact), delete.
+**Verify:** create the example suite via UI, save, re-open (data intact), delete. ✅
+
+Notes:
+- `renderSuites()` — left list (`.suite-item` selectable) + right `renderSuiteEditor()`; `state.suiteDraft` holds the working copy (live-bound inputs).
+- `renderTestCases()` / `renderSweeps()` — sub-rows with add/delete; sweep values: comma input ↔ JSON array (`valuesToInput`/`inputToValues`, numbers kept numeric).
+- `saveSuite()` — POST new / PUT existing (full replace of testCases+paramSweeps, matches backend); `runSuite()` — POST run + spinner + toast "Run complete: N results" + auto-switch to Results; `deleteSuite()` — confirm + DELETE.
+- Verified: served app.js has all Suites functions; API CRUD with exact UI body shape (create 201 / get / update 200 full-replace / delete 204).
 
 ---
 
@@ -368,6 +374,6 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 10 | Seed data | ✅ done |
 | 11 | Frontend: layout + theme | ✅ done |
 | 12 | Frontend: Models tab | ✅ done |
-| 13 | Frontend: Suites tab | ⬜ not started |
+| 13 | Frontend: Suites tab | ✅ done |
 | 14 | Frontend: Results tab | ⬜ not started |
 | 15 | README + E2E | ⬜ not started |

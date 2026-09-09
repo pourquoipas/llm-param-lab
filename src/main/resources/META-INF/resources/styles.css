@@ -158,6 +158,25 @@ pre {
 td.actions { white-space: nowrap; }
 td.actions button { margin-right: 4px; }
 
+/* Suites tab */
+.suite-list { list-style: none; margin: 0; padding: 0; }
+.suite-item {
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  color: var(--text); margin-bottom: 2px;
+}
+.suite-item:hover { background: rgba(79, 195, 247, 0.08); }
+.suite-item.selected { background: var(--panel-2); color: var(--accent); }
+.section-title {
+  margin: 18px 0 8px; font-size: 13px; font-weight: 600;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.sub-row {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start;
+}
+.sub-row .sub-grid { flex: 1; }
+.sub-row > button { flex: 0 0 auto; align-self: flex-end; }
+
 /* Layout helpers */
 .row { display: flex; gap: 16px; }
 .row > * { flex: 1; }
