@@ -33,5 +33,6 @@
 - Suite create/update → replaceChildren: delete testCases+paramSweeps esistenti poi insert (full replace, no JPA cascade)
 - Routing → route suite-scoped in ONE *Resource (overlap cross-resource /api/suites vs /api+/suites/{id}/run → 404 HTML default)
 - Run exceptions → SuiteAlreadyRunning 409, SuiteNotFound 404, NoActiveModel 400 (tutte ApiException)
+- Error handling → ApiExceptionMapper (ApiException → JSON status) + GenericExceptionMapper (last-resort: WebApplicationException keeps status, else JSON 500)
 - Seed data → seed/SeedData.java @ApplicationScoped, @Transactional onStartup(@Observes StartupEvent); idempotente (solo se tabella vuota via findAll().isEmpty())
 - DTO con id read-only → record *Dto con Long id come primo componente (popolato solo in toResponse, ignorato in create/update che usano accessors)

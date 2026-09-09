@@ -341,14 +341,19 @@ Notes:
 ## Step 15 — README + end-to-end verification
 **Goal:** documented, fully working tool.
 
-- [ ] `README.md` per prompt.txt §12 (what/prereqs/quick start/schema versioning/API reference w/ curl examples).
-- [ ] Remove the temp `/api/ping` endpoint from Step 1 (and any other temp code).
-- [ ] Final E2E: clean `./data/`, `mvn quarkus:dev`, verify: seed data present, UI works,
+- [x] `README.md` per prompt.txt §12 (what/prereqs/quick start/schema versioning/API reference w/ curl examples).
+- [x] Remove the temp `/api/ping` endpoint from Step 1 (and any other temp code).
+- [x] Final E2E: clean `./data/`, boot jar, verify: seed data present, UI works,
   run a suite against Ollama (if running locally) — check results + scores in UI.
   (If no local LLM: verify error handling shows clean 4xx/toasts instead of stack traces.)
-- [ ] `mvn clean package` succeeds (non-dev build).
+- [x] `mvn clean package` succeeds (non-dev build).
 
-**Verify:** checklist above all green; `mvn clean package` + `java -jar` boots.
+**Notes:**
+- Removed temp `HealthResource` (`/api/ping`) + `DiagResource` (`/api/diag`); `rest/` now holds only the 4 real resources + 2 mappers.
+- Added `GenericExceptionMapper` (last-resort `@Provider`): `WebApplicationException` keeps its own status (404 stays 404), everything else → clean JSON 500. No more framework HTML error pages.
+- No local LLM during E2E → verified clean error paths instead of a live run.
+
+**Verify (done):** `./mvnw clean package` → BUILD SUCCESS, 44 tests green. Fresh boot (clean `./data/`, Liquibase recreates schema): seed present (2 models + 1 suite), UI assets 200, temp endpoints gone (404), no-active-model → clean 400 JSON, unreachable LLM → clean 500 JSON, unmapped route → clean 404 JSON.
 
 ---
 
@@ -383,4 +388,4 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 12 | Frontend: Models tab | ✅ done |
 | 13 | Frontend: Suites tab | ✅ done |
 | 14 | Frontend: Results tab | ✅ done |
-| 15 | README + E2E | ⬜ not started |
+| 15 | README + E2E | ✅ done |
