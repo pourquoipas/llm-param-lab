@@ -3,7 +3,7 @@
 ## Naming
 - *Resource.java → endpoint REST (JAX-RS)
 - *Service.java → business logic
-- *Repository.java → data access (Hibernate)
+- *Repository.java → data access → EntityManager + @ApplicationScoped, @Transactional solo sulle scritture
 - *Entity (domain/) → entity JPA
 - *Request/*Response (dto/) → payload REST
 - META-INF/resources/*.html|js|css → frontend statico

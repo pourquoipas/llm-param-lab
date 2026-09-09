@@ -1,0 +1,17 @@
+# Test-only config: in-memory H2 so @QuarkusTest never touches ./data/.
+# Overrides the same keys in src/main/resources/application.yml.
+quarkus:
+  datasource:
+    db-kind: h2
+    jdbc:
+      url: "jdbc:h2:mem:llmlab-test;DB_CLOSE_DELAY=-1"
+    username: sa
+    password: ""
+    devservices:
+      enabled: false
+  hibernate:
+    orm:
+      ddl-auto: none
+  liquibase:
+    change-log: "db/changelog/db.changelog-master.yaml"
+    migrate-at-start: true

@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-rename-param-sweep-values
+      author: llmlab
+      comment: "values is a reserved keyword in H2; rename to param_values"
+      changes:
+        - renameColumn:
+            tableName: param_sweep
+            oldColumnName: values
+            newColumnName: param_values

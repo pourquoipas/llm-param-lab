@@ -74,17 +74,26 @@ Idempotency tested (restart without delete → "Database is up to date, no chang
 ## Step 3 — Domain entities + repositories
 **Goal:** persistence layer works.
 
-- [ ] Entities in `domain/` mapped to the Liquibase schema (names match exactly):
+- [x] Entities in `domain/` mapped to the Liquibase schema (names match exactly):
   - `ModelConfig` (provider enum `ModelProvider { OLLAMA, OPENAI_COMPATIBLE }`)
   - `TestSuite` (expectedOutputMode enum `ExpectedOutputMode { EXACT, CONTAINS, REGEX, NONE }`, FK `judgeModelId`)
   - `TestCase` (nullable `systemPrompt`)
   - `ParamSweep`
   - `RunResult` (evaluationType enum `EvaluationType { EXACT_MATCH, CONTAINS, REGEX_MATCH, JUDGE_LLM, SKIPPED }`)
-- [ ] Repositories in `repository/` (Hibernate `@Repository`): find/save/delete +
+- [x] Repositories in `repository/` (EntityManager-based, `@ApplicationScoped`): find/save/delete +
   helpers (e.g. `TestSuiteRepository.findByJudgeModelId`, `ModelConfigRepository.findActive()`).
-- [ ] Temp smoke check: a small startup or test that persists and reads one row of each entity.
+- [x] Smoke check: `EntitySmokeTest` (@QuarkusTest) persists + reads one row of each entity.
 
-**Verify:** app boots (entities don't fight Liquibase since `ddl-auto: none`); smoke check persists + reads.
+Notes from implementation:
+- `values` is a **reserved keyword in H2** → the `param_sweep.values` column broke INSERTs.
+  Fixed via new changeset `002-rename-values-column.yaml` (rename to `param_values`); entity maps
+  `values` field → `param_values` column. (Follows the "never edit 001, add new file" rule.)
+- Repositories use `EntityManager` + `@Transactional` on writes (portable JPA, no Hibernate-specific API).
+- `TestSuite`/`RunResult` set `createdAt`/`updatedAt` via `@PrePersist`/`@PreUpdate`.
+- Test config `src/test/resources/application.yml` uses in-memory H2 so tests never touch `./data/`.
+
+**Verify (done):** `./mvnw test` → `EntitySmokeTest` passes (persist + read each entity, FKs + timestamps OK).
+Dev app boots against file DB; 002 rename applied as a real migration ("Column param_sweep.values renamed to param_values").
 
 ---
 
@@ -278,7 +287,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 |------|------|--------|
 | 1 | Maven scaffold | ✅ done |
 | 2 | Liquibase schema | ✅ done |
-| 3 | Entities + repositories | ⬜ not started |
+| 3 | Entities + repositories | ✅ done |
 | 4 | ModelFactory | ⬜ not started |
 | 5 | TestRunnerService core | ⬜ not started |
 | 6 | Judge evaluation | ⬜ not started |

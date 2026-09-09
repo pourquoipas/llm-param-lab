@@ -1,6 +1,8 @@
 databaseChangeLog:
   - include:
       file: db/changelog/changes/001-initial-schema.yaml
+  - include:
+      file: db/changelog/changes/002-rename-values-column.yaml
   # Future changes go here, one file per change:
   # - include:
-  #     file: db/changelog/changes/002-add-field-x.yaml
+  #     file: db/changelog/changes/003-add-field-x.yaml
