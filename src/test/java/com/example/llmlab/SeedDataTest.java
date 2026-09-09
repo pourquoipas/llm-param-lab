@@ -9,31 +9,34 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 
 /**
- * Verifies the startup seed data: 2 model configs and the "JSON extraction test" suite
- * (3 test cases + 2 sweeps, judge → remote-gpt). The seed runs once at app startup against
- * the in-memory H2 test DB, so the data is present for these assertions.
+ * Verifies the startup seed data: the default model (from .env) and the "JSON extraction
+ * test" suite (3 test cases + 2 sweeps, judge → default model). The seed runs once at app
+ * startup against the in-memory H2 test DB, so the data is present for these assertions.
  */
 @QuarkusTest
 class SeedDataTest {
 
     @Test
-    void seedsTwoModelConfigs() {
+    void seedsDefaultModel() {
+        // Other test classes add models to the shared in-memory DB, so assert the default
+        // model is present with the right config rather than the total count.
         given().when().get("/api/models")
                 .then().statusCode(200)
-                .body("name", hasItem("local-llama"))
-                .body("name", hasItem("remote-gpt"));
+                .body("name", hasItem("default"))
+                .body("baseUrl", hasItem("http://localhost:11000/v1"))
+                .body("modelName", hasItem("Qwen3.8-27B-UD-IQ3_S.gguf"));
     }
 
     @Test
     void seedsJsonExtractionSuite() {
-        Integer remoteGptId = idByName("/api/models", "remote-gpt");
+        Integer defaultModelId = idByName("/api/models", "default");
         Integer suiteId = idByName("/api/suites", "JSON extraction test");
 
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
                 .body("name", equalTo("JSON extraction test"))
                 .body("expectedOutputMode", equalTo("NONE"))
-                .body("judgeModelId", equalTo(remoteGptId))
+                .body("judgeModelId", equalTo(defaultModelId))
                 .body("testCases.size()", equalTo(3))
                 .body("paramSweeps.size()", equalTo(2))
                 .body("paramSweeps[0].paramName", equalTo("temperature"))

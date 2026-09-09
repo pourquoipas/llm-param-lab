@@ -357,6 +357,47 @@ Notes:
 
 ---
 
+## Step 16 — LLM config in `.env` + default model
+**Goal:** default LLM = `localhost:11000` + `Qwen3.8-27B-UD-IQ3_S.gguf`, used for both execution (active model) and evaluation (judge); config lives in a gitignored `.env`.
+
+- [x] `.env` file with `LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL_NAME`, `LLM_API_KEY` (defaults: OPENAI_COMPATIBLE, `http://localhost:11000/v1`, `Qwen3.8-27B-UD-IQ3_S.gguf`, empty).
+- [x] Add `.env` to `.gitignore`.
+- [x] `LlmConfig` config class reading `llm.*` (Quarkus maps `.env` keys → `llm.*`), with `defaultValue` fallbacks so a fresh clone (no `.env`) still boots.
+- [x] Seed creates ONE default model (from `LlmConfig`) flagged **active** (execution) and points the example suite's `judgeModelId` at it (evaluation).
+- [x] Tests: seed uses `.env`/config values; default model active; suite judge = default model.
+
+**Verify (done):** `./mvnw test` → 44 green. Fresh boot (clean `./data/`) → 1 active model (localhost:11000 + Qwen3.8-27B-UD-IQ3_S.gguf), example suite judge = that model.
+
+## Step 17 — Admin endpoints (clean DB + insert test case)
+**Goal:** two endpoints to reset the DB and to insert a minimal live test case.
+
+- [ ] `AdminService` + `AdminResource` (`/api/admin`).
+- [ ] `POST /api/admin/clean` → wipe all tables in FK order (run_result → test_case → param_sweep → test_suite → model_config).
+- [ ] `POST /api/admin/test-case` → ensure default model exists (active, from `LlmConfig`) + create a suite "Agent smoke test" with 2 test cases (distinct system+user prompts) and a temperature sweep `[0.5, 0.8]`; judge = default model.
+- [ ] Tests: clean empties all tables; test-case creates active model + 2 cases + temp sweep; idempotent-ish (re-runnable).
+
+**Verify:** `./mvnw test` green; curl clean → all lists empty; curl test-case → 1 active model + suite with 2 cases + temp [0.5,0.8].
+
+## Step 18 — UI admin buttons
+**Goal:** two top-bar buttons wired to the admin endpoints.
+
+- [ ] `index.html`: two buttons in the top bar (e.g. "＋ Test case", "🗑 Clean DB").
+- [ ] `app.js`: `insertTestCase()` (POST `/api/admin/test-case`) + `cleanDatabase()` (POST `/api/admin/clean`, with confirm), then re-render.
+- [ ] `styles.css`: button styling consistent with the theme.
+
+**Verify:** `node --check app.js`; boot → both buttons present, clicking test-case populates a runnable suite, clicking clean empties the UI.
+
+## Step 19 — README + final E2E
+**Goal:** documented, fully working tool with the new features.
+
+- [ ] `README.md`: document `.env` (LLM config) + the two admin buttons/endpoints + updated quick start.
+- [ ] Final E2E: clean `./data/`, boot jar, verify default model + example suite, click/POST test-case, run it (clean 500 if no LLM), clean DB.
+- [ ] `./mvnw clean package` succeeds (non-dev build).
+
+**Verify:** checklist green; `./mvnw clean package` + `java -jar` boots; admin endpoints + buttons work.
+
+---
+
 ## Step dependency graph
 
 ```
@@ -366,6 +407,7 @@ Notes:
 3 → 10 (seed data)
 9 → 11 → 12 → 13 → 14 (frontend, sequential)
 All → 15 (README + E2E)
+15 → 16 (.env + default model) → 17 (admin endpoints) → 18 (UI buttons) → 19 (README + E2E)
 ```
 
 Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is the rule.
@@ -389,3 +431,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 13 | Frontend: Suites tab | ✅ done |
 | 14 | Frontend: Results tab | ✅ done |
 | 15 | README + E2E | ✅ done |
+| 16 | LLM config in `.env` + default model | ✅ done |
+| 17 | Admin endpoints (clean DB + test case) | ⬜ not started |
+| 18 | UI admin buttons | ⬜ not started |
+| 19 | README + final E2E | ⬜ not started |

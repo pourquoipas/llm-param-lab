@@ -11,7 +11,10 @@
 - SPA app.js → state object + api() fetch wrapper (non-2xx → toast+throw) + switchTab() + openModal() + toast()
 - Suite editor → state.suiteDraft (working copy) + input live-bound; save = POST new / PUT existing (full replace testCases+paramSweeps)
 
-## Config (application.yml)
+## Config (.env + application.yml)
+- .env (gitignored) → LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL_NAME/LLM_API_KEY → Quarkus normalizza LLM_* → llm.*
+- LlmConfig (config/) → @ConfigProperty llm.* con defaultValue (boot senza .env); apiKey → Optional<String> (empty→null, SRCFG00040)
+- default model → ModelConfigService.ensureDefaultModel() (name "default", active) da LlmConfig; seed + admin test-case lo usano
 - datasource → quarkus.datasource.jdbc.url (nested under jdbc), db-kind, username, password
 - devservices → quarkus.datasource.devservices.enabled: false (file H2, non in-memory)
 - liquibase → quarkus.liquibase.change-log + migrate-at-start: true (obbligatorio, altrimenti no-op)

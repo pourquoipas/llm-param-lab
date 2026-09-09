@@ -5,6 +5,9 @@ target/
 # H2 runtime database (file-based, created on startup)
 data/
 
+# LLM configuration (local, never committed) — see .env.example
+.env
+
 # Logs
 *.log
 logs/

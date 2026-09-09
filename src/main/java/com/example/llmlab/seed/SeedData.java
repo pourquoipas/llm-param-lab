@@ -2,7 +2,6 @@ package com.example.llmlab.seed;
 
 import com.example.llmlab.domain.ExpectedOutputMode;
 import com.example.llmlab.domain.ModelConfig;
-import com.example.llmlab.domain.ModelProvider;
 import com.example.llmlab.domain.ParamSweep;
 import com.example.llmlab.domain.TestCase;
 import com.example.llmlab.domain.TestSuite;
@@ -10,6 +9,7 @@ import com.example.llmlab.repository.ModelConfigRepository;
 import com.example.llmlab.repository.ParamSweepRepository;
 import com.example.llmlab.repository.TestCaseRepository;
 import com.example.llmlab.repository.TestSuiteRepository;
+import com.example.llmlab.service.ModelConfigService;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -18,8 +18,10 @@ import jakarta.transaction.Transactional;
 
 /**
  * Seeds example data on first start (only when the relevant tables are empty, so it is
- * idempotent across restarts). Demonstrates the key feature: same user prompt, different
- * system prompts, different parameters — all in one run.
+ * idempotent across restarts). Creates the default model (from {@code .env}) as the active
+ * model and points the example suite's judge at it — the same model serves execution and
+ * evaluation. Demonstrates the key feature: same user prompt, different system prompts,
+ * different parameters — all in one run.
  */
 @ApplicationScoped
 public class SeedData {
@@ -32,6 +34,8 @@ public class SeedData {
     TestCaseRepository caseRepo;
     @Inject
     ParamSweepRepository sweepRepo;
+    @Inject
+    ModelConfigService modelService;
 
     @Transactional
     void onStartup(@Observes StartupEvent event) {
@@ -43,18 +47,14 @@ public class SeedData {
         if (!modelRepo.findAll().isEmpty()) {
             return;
         }
-        modelRepo.save(new ModelConfig("local-llama", ModelProvider.OLLAMA,
-                "http://localhost:11434", null, "llama3.1"));
-        modelRepo.save(new ModelConfig("remote-gpt", ModelProvider.OPENAI_COMPATIBLE,
-                "https://api.openai.com/v1", null, "gpt-4o-mini"));
+        modelService.ensureDefaultModel();
     }
 
     private void seedSuite() {
         if (!suiteRepo.findAll().isEmpty()) {
             return;
         }
-        Long judgeId = modelRepo.findByName("remote-gpt")
-                .map(ModelConfig::getId).orElse(null);
+        Long judgeId = modelService.ensureDefaultModel().getId();
 
         TestSuite suite = new TestSuite("JSON extraction test");
         suite.setDescription("Same user prompt, different system prompts and parameters — all in one run.");

@@ -15,3 +15,9 @@ quarkus:
   liquibase:
     change-log: "db/changelog/db.changelog-master.yaml"
     migrate-at-start: true
+# LLM defaults for tests (deterministic, independent of the working-directory .env).
+# api-key is intentionally unset (local servers need no key).
+llm:
+  provider: OPENAI_COMPATIBLE
+  base-url: "http://localhost:11000/v1"
+  model-name: "Qwen3.8-27B-UD-IQ3_S.gguf"

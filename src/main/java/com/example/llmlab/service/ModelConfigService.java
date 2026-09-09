@@ -1,5 +1,6 @@
 package com.example.llmlab.service;
 
+import com.example.llmlab.config.LlmConfig;
 import com.example.llmlab.domain.ModelConfig;
 import com.example.llmlab.dto.ModelConfigRequest;
 import com.example.llmlab.dto.ModelConfigResponse;
@@ -17,11 +18,33 @@ import java.util.List;
 @ApplicationScoped
 public class ModelConfigService {
 
+    /** Stable display name of the default model (from {@link LlmConfig}). */
+    public static final String DEFAULT_MODEL_NAME = "default";
+
     @Inject
     ModelConfigRepository repository;
 
+    @Inject
+    LlmConfig llmConfig;
+
     public List<ModelConfigResponse> list() {
         return repository.findAll().stream().map(ModelConfigResponse::from).toList();
+    }
+
+    /**
+     * Returns the default model (from {@link LlmConfig}), creating it and flagging it
+     * active if it does not exist yet. Used by the startup seed and the admin
+     * "insert test case" endpoint so both share one source of truth.
+     */
+    @Transactional
+    public ModelConfig ensureDefaultModel() {
+        return repository.findByName(DEFAULT_MODEL_NAME).orElseGet(() -> {
+            ModelConfig model = new ModelConfig(
+                    DEFAULT_MODEL_NAME, llmConfig.provider(), llmConfig.baseUrl(),
+                    llmConfig.apiKey(), llmConfig.modelName());
+            model.setActive(true);
+            return repository.save(model);
+        });
     }
 
     @Transactional
