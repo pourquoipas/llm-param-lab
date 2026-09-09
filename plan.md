@@ -436,3 +436,21 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 17 | Admin endpoints (clean DB + test case) | ✅ done |
 | 18 | UI admin buttons | ✅ done |
 | 19 | README + final E2E | ✅ done |
+
+## Bugs
+
+Running log of bug reports and their fixes. Newest first. Each entry: report, status, fix.
+
+### Bug #1 — Model modal: X (top-right) doesn't close; want Save + X-to-discard
+- **Reported:** 2026-09-09
+- **Status:** ⬜ open
+- **Area:** UI → Models tab → Add/Edit Model modal
+- **Report:**
+  - Editing an existing model: the modal does not close with the X in the top-right.
+  - Preferred (if simple): a **Save** button that saves the changes and closes; the **X** to exit without saving.
+  - The **Add** modal has the same problem.
+- **Code state (context for fix):**
+  - `app.js` `openModelModal()` already renders a footer with **Save** (saves + `close()`) and **Cancel** (`close()`).
+  - `openModal()` wires `.modal-close` (the X) to `close()` = `backdrop.remove()`.
+  - Intended behavior is already in code → reproduce to find the real cause of "X doesn't close".
+- **Fix:** (pending)
