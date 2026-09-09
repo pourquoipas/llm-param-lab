@@ -244,10 +244,10 @@ Notes from implementation:
 
 ---
 
-## Step 10 — Seed data
+## Step 10 — Seed data ✅
 **Goal:** example data on first start (only if DB empty).
 
-- [ ] `@Observes StartupEvent` (or `ApplicationScoped` `@Observes @Startup`):
+- [x] `@Observes StartupEvent` (or `ApplicationScoped` `@Observes @Startup`):
   - If `model_config` table empty → create:
     - "local-llama" (OLLAMA, `http://localhost:11434`, `llama3.1`)
     - "remote-gpt" (OPENAI_COMPATIBLE, `https://api.openai.com/v1`, `gpt-4o-mini`)
@@ -255,7 +255,12 @@ Notes from implementation:
     (each with its OWN systemPrompt) + 2 sweeps (temperature [0.0, 0.3, 0.7], topP [0.9, 0.95]),
     judgeModelId → remote-gpt.
 
-**Verify:** delete `./data/`, restart, check tables seeded (curl API or H2). Restart again → no duplicates.
+**Verify:** delete `./data/`, restart, check tables seeded (curl API or H2). Restart again → no duplicates. ✅
+
+Notes:
+- `seed/SeedData.java` — `@ApplicationScoped`, `@Transactional onStartup(@Observes StartupEvent)`; `seedModels()` + `seedSuite()`; each guarded by `findAll().isEmpty()` (idempotent).
+- judgeModelId resolved via `modelRepo.findByName("remote-gpt")` (models seeded first).
+- Verified: first boot seeds 2 models + 1 suite (3 cases, 2 sweeps); second boot → no duplicates (still 2 + 1).
 
 ---
 
@@ -347,7 +352,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 7 | REST: Models | ✅ done |
 | 8 | REST: Suites | ✅ done |
 | 9 | REST: Run + Results | ✅ done |
-| 10 | Seed data | ⬜ not started |
+| 10 | Seed data | ✅ done |
 | 11 | Frontend: layout + theme | ⬜ not started |
 | 12 | Frontend: Models tab | ⬜ not started |
 | 13 | Frontend: Suites tab | ⬜ not started |
