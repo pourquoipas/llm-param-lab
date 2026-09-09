@@ -443,14 +443,17 @@ Running log of bug reports and their fixes. Newest first. Each entry: report, st
 
 ### Bug #1 — Model modal: X (top-right) doesn't close; want Save + X-to-discard
 - **Reported:** 2026-09-09
-- **Status:** ⬜ open
+- **Status:** ✅ fixed
 - **Area:** UI → Models tab → Add/Edit Model modal
 - **Report:**
   - Editing an existing model: the modal does not close with the X in the top-right.
   - Preferred (if simple): a **Save** button that saves the changes and closes; the **X** to exit without saving.
   - The **Add** modal has the same problem.
-- **Code state (context for fix):**
-  - `app.js` `openModelModal()` already renders a footer with **Save** (saves + `close()`) and **Cancel** (`close()`).
-  - `openModal()` wires `.modal-close` (the X) to `close()` = `backdrop.remove()`.
-  - Intended behavior is already in code → reproduce to find the real cause of "X doesn't close".
-- **Fix:** (pending)
+- **Root cause:**
+  - `openModal()` called `root.appendChild(clone)` **before** querying `.modal-close` / `.modal` from `clone`.
+  - `appendChild` on a `DocumentFragment` **moves** its children out → the fragment is empty afterwards → `clone.querySelector('.modal-close')` returned `null` → `.addEventListener` threw.
+  - The throw aborted `openModal` before the `return`, so `openModelModal` never added the **Save**/**Cancel** footer either. Net: X dead, no Save/Cancel buttons.
+- **Fix:**
+  - `app.js` `openModal()`: query `.modal`, `.modal-backdrop`, wire the X + backdrop listeners **before** `appendChild`; return `{ modal, close }`.
+  - Result: X closes (discard), backdrop click closes, and the footer **Save** (saves + closes) / **Cancel** (closes) render as intended.
+- **Verify:** `node --check` OK; jsdom simulation → `openModal` no longer throws, footer present, X click removes the modal; fresh boot serves the fixed `app.js`.

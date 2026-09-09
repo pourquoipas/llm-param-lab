@@ -56,15 +56,18 @@ function hideSpinner() { document.getElementById('spinner-overlay').classList.ad
 function openModal(title, bodyHtml) {
   const tpl = document.getElementById('modal-template');
   const clone = tpl.content.cloneNode(true);
-  clone.querySelector('.modal-title').textContent = title;
-  clone.querySelector('.modal-body').innerHTML = bodyHtml;
-  const root = document.getElementById('modal-root');
-  root.appendChild(clone);
+  // Query everything BEFORE appendChild: appending a DocumentFragment moves its
+  // children out, so the fragment is empty afterwards and querySelector returns null.
+  const modal = clone.querySelector('.modal');
   const backdrop = clone.querySelector('.modal-backdrop');
   const close = () => backdrop.remove();
-  clone.querySelector('.modal-close').addEventListener('click', close);
+  modal.querySelector('.modal-title').textContent = title;
+  modal.querySelector('.modal-body').innerHTML = bodyHtml;
+  modal.querySelector('.modal-close').addEventListener('click', close);
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
-  return { modal: clone.querySelector('.modal'), close };
+  const root = document.getElementById('modal-root');
+  root.appendChild(clone);
+  return { modal, close };
 }
 
 // ---- Tab switching ---------------------------------------------------------
