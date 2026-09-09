@@ -318,16 +318,23 @@ Notes:
 
 ---
 
-## Step 14 — Frontend: Results tab
+## Step 14 — Frontend: Results tab ✅
 **Goal:** browse + run results.
 
-- [ ] Filter bar: suite dropdown + optional test case filter.
-- [ ] Summary card: best param combo for selected suite (from `/api/results/summary`).
-- [ ] Results table: Test Case | Params | Score (colored pill) | Passed | Latency | Tokens In/Out | Eval Type | Date.
-- [ ] Row click → expand: `rawOutput` in `<pre>`, `scoreReason`.
-- [ ] "Run All" button (top right, spinner while running).
+- [x] Filter bar: suite dropdown + optional test case filter.
+- [x] Summary card: best param combo for selected suite (from `/api/results/summary`).
+- [x] Results table: Test Case | Params | Score (colored pill) | Passed | Latency | Tokens In/Out | Eval Type | Date.
+- [x] Row click → expand: `rawOutput` in `<pre>`, `scoreReason`.
+- [x] "Run All" button (top right, spinner while running).
 
-**Verify:** after a run (real or seeded), results render, filtering works, row expansion works.
+**Verify:** after a run (real or seeded), results render, filtering works, row expansion works. ✅
+
+Notes:
+- `TestCaseDto` gained a read-only `id` (first component) so the UI can map `RunResult.testCaseId` → test case name; create path ignores it (uses accessors), only `toResponse` populates it.
+- `renderResults()` — filter bar (suite + optional test case), summary card (best combo per test case), results table; `renderSummaryCard()` / `renderResultsTable(tcName)` / `formatParams()` / `runAll()`.
+- Score pill: green ≥ 0.7, yellow 0.4–0.7, red < 0.4 (existing `score-high/mid/low` classes). Row click toggles a hidden detail row (`rawOutput` + `scoreReason` in `<pre>`).
+- `runSuite()` now sets `state.resultsSuiteId` so the Results tab opens on the just-run suite.
+- Verified: 44 tests green; served app.js has all Results fns; seeded 3 results → API returns correct shape (best combo = highest avg score), then cleaned up. Ollama unreachable → run returns clean 500 (toast, no crash).
 
 ---
 
@@ -375,5 +382,5 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 11 | Frontend: layout + theme | ✅ done |
 | 12 | Frontend: Models tab | ✅ done |
 | 13 | Frontend: Suites tab | ✅ done |
-| 14 | Frontend: Results tab | ⬜ not started |
+| 14 | Frontend: Results tab | ✅ done |
 | 15 | README + E2E | ⬜ not started |

@@ -8,6 +8,9 @@ const state = {
   selectedSuiteId: null,
   suiteDraft: null,
   results: [],
+  resultsSuiteId: null,
+  resultsTestCaseId: null,
+  summary: null,
 };
 
 // ---- API wrapper -----------------------------------------------------------
@@ -426,7 +429,8 @@ async function runSuite() {
   try {
     const results = await api('/api/suites/' + d.id + '/run', { method: 'POST' });
     toast('Run complete: ' + results.length + ' results', 'success');
-    state.results = results;
+    state.resultsSuiteId = d.id;
+    state.resultsTestCaseId = null;
     switchTab('results');
   } catch (e) { /* toast already shown */ }
   finally {
@@ -447,9 +451,172 @@ async function deleteSuite() {
   } catch (e) { /* toast already shown */ }
 }
 
-function renderResults() {
-  document.getElementById('tab-results').innerHTML =
-    '<div class="placeholder">Results tab — Step 14</div>';
+// ---- Results tab (Step 14) -------------------------------------------------
+function formatParams(paramsJson) {
+  if (!paramsJson) return '—';
+  try {
+    const obj = JSON.parse(paramsJson);
+    return Object.entries(obj).map(([k, v]) => k + '=' + v).join(', ');
+  } catch (e) { return paramsJson; }
+}
+
+async function renderResults() {
+  const panel = document.getElementById('tab-results');
+  panel.innerHTML = '<div class="placeholder">Loading results…</div>';
+
+  if (!state.suites.length) {
+    try { state.suites = await api('/api/suites'); } catch (e) { /* ignore */ }
+  }
+  if (!state.suites.length) {
+    panel.innerHTML = '<div class="placeholder">No suites yet. Create one in the Suites tab.</div>';
+    return;
+  }
+
+  if (state.resultsSuiteId == null || !state.suites.some((s) => s.id === state.resultsSuiteId)) {
+    state.resultsSuiteId = state.suites[0].id;
+    state.resultsTestCaseId = null;
+  }
+
+  const suite = state.suites.find((s) => s.id === state.resultsSuiteId);
+  const tcName = (id) => {
+    const tc = (suite.testCases || []).find((t) => t.id === id);
+    return tc ? tc.name : '#' + id;
+  };
+
+  let results, summary;
+  try {
+    [results, summary] = await Promise.all([
+      api('/api/results?suiteId=' + state.resultsSuiteId),
+      api('/api/results/summary?suiteId=' + state.resultsSuiteId),
+    ]);
+  } catch (e) {
+    panel.innerHTML = '<div class="placeholder">Failed to load results.</div>';
+    return;
+  }
+  state.results = results;
+  state.summary = summary;
+
+  const tcOptions = (suite.testCases || []).map((t) =>
+    `<option value="${t.id}" ${state.resultsTestCaseId === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+
+  panel.innerHTML = `
+    <div class="card">
+      <div class="row" style="align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0; flex:1;">Results</h3>
+        <button class="btn-primary" id="run-all">Run All</button>
+      </div>
+      <div class="row" style="gap:12px; align-items:flex-end;">
+        <div style="flex:1;">
+          <label>Suite</label>
+          <select id="res-suite">${state.suites.map((s) => `<option value="${s.id}" ${s.id === state.resultsSuiteId ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+        </div>
+        <div style="flex:1;">
+          <label>Test Case (optional)</label>
+          <select id="res-tc"><option value="">All test cases</option>${tcOptions}</select>
+        </div>
+      </div>
+    </div>
+    <div class="card" id="res-summary"></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Test Case</th><th>Params</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Eval Type</th><th>Date</th></tr></thead>
+        <tbody id="res-tbody"></tbody>
+      </table>
+    </div>`;
+
+  panel.querySelector('#res-suite').addEventListener('change', (e) => {
+    state.resultsSuiteId = Number(e.target.value);
+    state.resultsTestCaseId = null;
+    renderResults();
+  });
+  panel.querySelector('#res-tc').addEventListener('change', (e) => {
+    state.resultsTestCaseId = e.target.value ? Number(e.target.value) : null;
+    renderResultsTable(tcName);
+  });
+  panel.querySelector('#run-all').addEventListener('click', runAll);
+
+  renderSummaryCard();
+  renderResultsTable(tcName);
+}
+
+function renderSummaryCard() {
+  const el = document.getElementById('res-summary');
+  const summary = state.summary;
+  if (!summary || !summary.testCases || !summary.testCases.length) {
+    el.innerHTML = '<div class="muted">No results yet for this suite. Run it to see the best parameter combination.</div>';
+    return;
+  }
+  const rows = summary.testCases.map((tc) => {
+    const best = tc.bestCombo;
+    if (!best) return `<div class="sub-row"><span class="muted">${esc(tc.testCaseName)} — no data</span></div>`;
+    const score = best.avgScore != null ? best.avgScore.toFixed(2) : '—';
+    return `<div class="sub-row">
+      <div class="sub-grid">
+        <div style="font-weight:600; margin-bottom:4px;">${esc(tc.testCaseName)}</div>
+        <div class="muted">Best: ${esc(formatParams(best.paramsJson))} — avg score <strong>${score}</strong></div>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<h3>Best param combo</h3>${rows}`;
+}
+
+function renderResultsTable(tcName) {
+  const tbody = document.getElementById('res-tbody');
+  if (!tbody) return;
+  let results = state.results || [];
+  if (state.resultsTestCaseId != null) {
+    results = results.filter((r) => r.testCaseId === state.resultsTestCaseId);
+  }
+  if (!results.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = results.map((r) => {
+    const scoreClass = r.score == null ? '' : (r.score >= 0.7 ? 'score-high' : r.score >= 0.4 ? 'score-mid' : 'score-low');
+    const scoreText = r.score == null ? '—' : r.score.toFixed(2);
+    return `
+      <tr class="clickable" data-id="${r.id}">
+        <td>${esc(tcName(r.testCaseId))}</td>
+        <td>${esc(formatParams(r.paramsJson))}</td>
+        <td><span class="badge badge-score ${scoreClass}">${scoreText}</span></td>
+        <td>${r.passed ? '✓' : '✗'}</td>
+        <td>${r.latencyMs != null ? r.latencyMs + ' ms' : '—'}</td>
+        <td>${r.tokensIn != null ? r.tokensIn : '—'} / ${r.tokensOut != null ? r.tokensOut : '—'}</td>
+        <td>${esc(r.evaluationType)}</td>
+        <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
+      </tr>
+      <tr class="res-detail" data-detail-for="${r.id}" style="display:none;">
+        <td colspan="8">
+          <label>Raw Output</label>
+          <pre>${esc(r.rawOutput || '(empty)')}</pre>
+          <label>Score Reason</label>
+          <pre>${esc(r.scoreReason || '(none)')}</pre>
+        </td>
+      </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr.clickable').forEach((tr) => {
+    tr.addEventListener('click', () => {
+      const detail = tbody.querySelector(`tr[data-detail-for="${tr.dataset.id}"]`);
+      if (detail) detail.style.display = detail.style.display === 'none' ? '' : 'none';
+    });
+  });
+}
+
+async function runAll() {
+  const btn = document.getElementById('run-all');
+  btn.disabled = true;
+  showSpinner();
+  try {
+    const results = await api('/api/run-all', { method: 'POST' });
+    toast('Run complete: ' + results.length + ' results', 'success');
+    try { state.suites = await api('/api/suites'); } catch (e) { /* ignore */ }
+    renderResults();
+  } catch (e) { /* toast already shown */ }
+  finally {
+    hideSpinner();
+    btn.disabled = false;
+  }
 }
 
 // ---- Init ------------------------------------------------------------------

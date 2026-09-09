@@ -117,7 +117,7 @@ public class TestSuiteService {
 
     private SuiteResponse toResponse(TestSuite suite) {
         List<TestCaseDto> cases = caseRepo.findAllBySuiteId(suite.getId()).stream()
-                .map(tc -> new TestCaseDto(tc.getName(), tc.getSystemPrompt(), tc.getUserPrompt(), tc.getSortOrder()))
+                .map(tc -> new TestCaseDto(tc.getId(), tc.getName(), tc.getSystemPrompt(), tc.getUserPrompt(), tc.getSortOrder()))
                 .toList();
         List<ParamSweepDto> sweeps = sweepRepo.findAllBySuiteId(suite.getId()).stream()
                 .map(ps -> new ParamSweepDto(ps.getParamName(), ps.getValues()))
