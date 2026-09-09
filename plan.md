@@ -98,15 +98,23 @@ Dev app boots against file DB; 002 rename applied as a real migration ("Column p
 ---
 
 ## Step 4 — ModelFactory
-**Goal:** `ModelFactory` service returning `ChatLanguageModel` per `ModelConfig`.
+**Goal:** `ModelFactory` service returning a langchain4j `ChatModel` per `ModelConfig`.
 
-- [ ] `config/ModelFactory.java`:
+- [x] `config/ModelFactory.java`:
   - `OLLAMA` → `OllamaChatModel.builder().baseUrl(...).modelName(...).build()`
   - `OPENAI_COMPATIBLE` → `OpenAiChatModel.builder().baseUrl(...).apiKey(...).modelName(...).build()`
   - **No temperature/topP/maxTokens in builder** — those go in `ChatRequestParameters` at call time.
-- [ ] `config/AppConfig.java` — reads `app.default-judge-prompt` from yml (configurable property).
+- [x] `config/AppConfig.java` — reads `app.default-judge-prompt` from yml (`@ConfigProperty`, empty default).
 
-**Verify:** compiles; a temp endpoint or test builds a model instance for each provider (no real API call needed for OPENAI without key — just object creation).
+Notes from implementation:
+- langchain4j **1.0.1** renamed the interface: it is `dev.langchain4j.model.chat.ChatModel`
+  (the 0.x `ChatLanguageModel` does NOT exist in 1.0.1). `ModelFactory.create()` returns `ChatModel`.
+- BOM 1.0.1 pins `langchain4j-ollama` → `1.0.1-beta6` (open-ai/core are `1.0.1`). Both model
+  classes implement `ChatModel`; builders accept `baseUrl`/`modelName` (+`apiKey` for OpenAI).
+- `OpenAiChatModel` builds fine with a **null apiKey** (local OpenAI-compatible servers) — no validation.
+
+**Verify (done):** `./mvnw test` → `ModelFactoryTest` (3 tests) passes: builds an Ollama model,
+builds an OpenAI-compatible model with null apiKey, and `AppConfig` is injectable. No real API call.
 
 ---
 
@@ -288,7 +296,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 1 | Maven scaffold | ✅ done |
 | 2 | Liquibase schema | ✅ done |
 | 3 | Entities + repositories | ✅ done |
-| 4 | ModelFactory | ⬜ not started |
+| 4 | ModelFactory | ✅ done |
 | 5 | TestRunnerService core | ⬜ not started |
 | 6 | Judge evaluation | ⬜ not started |
 | 7 | REST: Models | ⬜ not started |

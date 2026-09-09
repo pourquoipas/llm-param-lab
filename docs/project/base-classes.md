@@ -2,7 +2,7 @@
 
 ## Config
 - AppConfig → legge app.* da application.yml (default-judge-prompt)
-- ModelFactory → costruisce ChatLanguageModel per ModelConfig (OLLAMA / OPENAI_COMPATIBLE)
+- ModelFactory → costruisce ChatModel per ModelConfig (1.0.1: ChatModel, non ChatLanguageModel)
 
 ## Service
 - ModelConfigService → CRUD + activate (isActive)
