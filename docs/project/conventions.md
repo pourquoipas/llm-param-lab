@@ -19,5 +19,6 @@
 - Endpoint REST → sempre in *Resource, mai in *Service
 - UI chiama API → fetch() in app.js, non inline in HTML
 - Parametri LLM (temperature/topP/maxTokens) → mai nel builder del modello, sempre in ChatRequestParameters a runtime
+- paramName sweep → builder: temperature→.temperature, topP→.topP, maxTokens→.maxOutputTokens
 - Schema DB → solo Liquibase, mai Hibernate ddl-auto
 - Changelog Liquibase → mai modificare file esistenti, sempre nuovo file in db/changelog/changes/

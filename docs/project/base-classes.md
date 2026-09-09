@@ -8,6 +8,7 @@
 - ModelConfigService → CRUD + activate (isActive)
 - TestSuiteService → CRUD suite + testCases + paramSweeps (cascade)
 - TestRunnerService → runSuite / runAll (cartesian product + evaluation)
+- SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
 
 ## Domain
 - ModelConfig → provider, baseUrl, modelName, isActive

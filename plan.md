@@ -121,7 +121,7 @@ builds an OpenAI-compatible model with null apiKey, and `AppConfig` is injectabl
 ## Step 5 — TestRunnerService (core run logic)
 **Goal:** `runSuite(Long suiteId)` executes the full sweep and evaluates.
 
-- [ ] `service/TestRunnerService.java`:
+- [x] `service/TestRunnerService.java`:
   1. Load suite + test cases + param sweeps + active model config.
   2. Cartesian product of sweep values (e.g. temp × topP).
   3. For each testCase × each combo:
@@ -134,9 +134,19 @@ builds an OpenAI-compatible model with null apiKey, and `AppConfig` is injectabl
        - else → SKIPPED
      - Persist `RunResult`.
   4. Concurrency guard: `ConcurrentHashMap<Long, Boolean>` lock, max 1 concurrent run per suite.
-- [ ] `runAll()` iterating all suites.
+- [x] `runAll()` iterating all suites.
 
-**Verify:** compiles; unit-testable core logic (Cartesian product + evaluators as pure methods).
+Notes from implementation:
+- Pure, unit-testable core: `cartesianProduct(List<ParamSweep>)` and the evaluators
+  (`evaluate`, `evaluateExpected`) are public and DB/model-free. `Evaluation` is a nested record.
+- `paramName` → builder mapping: `temperature`→`.temperature`, `topP`→`.topP`,
+  `maxTokens`→`.maxOutputTokens` (note the name difference). Unknown names ignored.
+- No sweeps → single empty combo (one run per test case, no params).
+- Judge path is a **stub** (`evaluateWithJudge` returns JUDGE_LLM, score=null) — real impl in Step 6.
+- `SuiteAlreadyRunningException` (new) for the concurrency guard → mapped to 409 in Step 9.
+
+**Verify (done):** `./mvnw test` → `TestRunnerServiceTest` (7 tests) passes: cartesian product
+(3×2=6, empty→1), EXACT/CONTAINS/REGEX pass+fail, SKIPPED, judge-stub type. No DB, no model call.
 
 ---
 
@@ -297,7 +307,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 2 | Liquibase schema | ✅ done |
 | 3 | Entities + repositories | ✅ done |
 | 4 | ModelFactory | ✅ done |
-| 5 | TestRunnerService core | ⬜ not started |
+| 5 | TestRunnerService core | ✅ done |
 | 6 | Judge evaluation | ⬜ not started |
 | 7 | REST: Models | ⬜ not started |
 | 8 | REST: Suites | ⬜ not started |
