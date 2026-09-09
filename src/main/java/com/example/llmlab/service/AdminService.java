@@ -52,8 +52,10 @@ public class AdminService {
 
     /**
      * Ensures the default model (from {@code .env}) exists and is active, then creates (or
-     * replaces) the "Agent smoke test" suite: 2 test cases (distinct system + user prompts)
-     * × temperature [0.5, 0.8], judged by the default model. Re-runnable.
+     * replaces) the "Agent smoke test" suite: 3 challenging test cases (a logic trap the
+     * model often gets wrong, a multi-step arithmetic case, and a strict-format case) ×
+     * temperature [0.5, 0.8], judged by the default model. The difficulty gradient is meant
+     * to produce varied judge scores (not all 1.0). Re-runnable.
      */
     @Transactional
     public TestSuite insertTestCase() {
@@ -65,7 +67,7 @@ public class AdminService {
                 .findFirst()
                 .orElseGet(() -> {
                     TestSuite s = new TestSuite(TEST_SUITE_NAME);
-                    s.setDescription("Minimal live test: 2 cases × temperature [0.5, 0.8].");
+                    s.setDescription("Challenging live test: 3 cases (trap, arithmetic, format) × temperature [0.5, 0.8].");
                     s.setExpectedOutputMode(ExpectedOutputMode.NONE);
                     suiteRepo.save(s);
                     return s;
@@ -80,12 +82,21 @@ public class AdminService {
         for (ParamSweep ps : sweepRepo.findAllBySuiteId(suite.getId())) {
             sweepRepo.delete(ps.getId());
         }
-        caseRepo.save(new TestCase(suite.getId(), "helpful",
-                "You are a helpful assistant.",
-                "What is the capital of France?", 0));
-        caseRepo.save(new TestCase(suite.getId(), "concise",
-                "You are a concise assistant. Answer in one word.",
-                "Name the largest planet in the solar system.", 1));
+        // Hard: classic rate trap — the intuitive answer (100) is wrong; correct is 5.
+        caseRepo.save(new TestCase(suite.getId(), "trap",
+                "You are a careful problem solver. Reason step by step, then give the final answer.",
+                "If it takes 5 machines 5 minutes to make 5 widgets, how long does it take 100 machines to make 100 widgets? Answer with only the number of minutes.",
+                0));
+        // Medium: multi-step arithmetic the model must compute correctly.
+        caseRepo.save(new TestCase(suite.getId(), "arithmetic",
+                "You are a precise calculator. Show your work step by step.",
+                "What is 17 × 23? Show each step and give the final answer.",
+                1));
+        // Medium: strict output format the model tends to violate (extra text / markdown).
+        caseRepo.save(new TestCase(suite.getId(), "format",
+                "You are a data extraction assistant. Respond with ONLY a valid JSON object, no markdown, no extra text.",
+                "Extract name and age from: 'My name is Alice and I am 30 years old.' Return JSON with keys 'name' (string) and 'age' (number).",
+                2));
         sweepRepo.save(new ParamSweep(suite.getId(), "temperature", "[0.5, 0.8]"));
         return suite;
     }

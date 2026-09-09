@@ -373,8 +373,8 @@ Notes:
 
 - [x] `AdminService` + `AdminResource` (`/api/admin`).
 - [x] `POST /api/admin/clean` → wipe all tables in FK order (run_result → test_case → param_sweep → test_suite → model_config).
-- [x] `POST /api/admin/test-case` → ensure default model exists (active, from `LlmConfig`) + create a suite "Agent smoke test" with 2 test cases (distinct system+user prompts) and a temperature sweep `[0.5, 0.8]`; judge = default model.
-- [x] Tests: clean empties all tables (re-seeds after); test-case creates active model + 2 cases + temp sweep; idempotent (re-runnable).
+- [x] `POST /api/admin/test-case` → ensure default model exists (active, from `LlmConfig`) + create a suite "Agent smoke test" with 3 challenging test cases (logic trap, multi-step arithmetic, strict-JSON format) and a temperature sweep `[0.5, 0.8]`; judge = default model.
+- [x] Tests: clean empties all tables (re-seeds after); test-case creates active model + 3 cases + temp sweep; idempotent (re-runnable).
 - [x] `ModelConfigService.deactivateAll()` + `ResultResourceTest` "no active model" tests made deterministic (deactivate all → 400, no LLM call; restore default in `finally`).
 
 **Verify (done):** `./mvnw test` → 46 green. `ResultResourceTest` green in isolation (no LLM dependency).
@@ -386,7 +386,7 @@ Notes:
 - [x] `app.js`: `insertTestCase()` (POST `/api/admin/test-case`) + `cleanDatabase()` (POST `/api/admin/clean`, with confirm), then re-render + switch tab.
 - [x] `styles.css`: `.topbar-right` / `.topbar-actions` / `.topbar-btn` (+ danger hover) consistent with the theme.
 
-**Verify (done):** `node --check app.js` OK. Fresh boot → both buttons present; POST test-case → 201 + "Agent smoke test" (2 cases, temp [0.5,0.8], default model active); POST clean → 204 + models/suites `[]`.
+**Verify (done):** `node --check app.js` OK. Fresh boot → both buttons present; POST test-case → 201 + "Agent smoke test" (3 cases, temp [0.5,0.8], default model active); POST clean → 204 + models/suites `[]`.
 
 ## Step 19 — README + final E2E ✅ done
 **Goal:** documented, fully working tool with the new features.

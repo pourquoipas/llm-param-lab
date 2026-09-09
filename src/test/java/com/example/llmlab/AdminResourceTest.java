@@ -48,7 +48,7 @@ class AdminResourceTest {
                 .then().statusCode(200)
                 .body("name", equalTo("Agent smoke test"))
                 .body("judgeModelId", equalTo(defaultModelId))
-                .body("testCases.size()", equalTo(2))
+                .body("testCases.size()", equalTo(3))
                 .body("paramSweeps.size()", equalTo(1))
                 .body("paramSweeps[0].paramName", equalTo("temperature"))
                 .body("paramSweeps[0].values", equalTo("[0.5, 0.8]"));
@@ -57,7 +57,7 @@ class AdminResourceTest {
         given().when().post("/api/admin/test-case").then().statusCode(201);
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
-                .body("testCases.size()", equalTo(2));
+                .body("testCases.size()", equalTo(3));
     }
 
     /** True if the "default" model is currently the active one. */
