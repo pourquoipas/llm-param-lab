@@ -27,3 +27,5 @@
 - Changelog Liquibase → mai modificare file esistenti, sempre nuovo file in db/changelog/changes/
 - @Consumes(APPLICATION_JSON) → solo sui metodi che leggono body (create/update), mai a livello classe (POST senza body → 415)
 - REST JSON → quarkus-rest-jackson (non quarkus-jackson standalone) per reader/writer body REST
+- Suite validation → mode==NONE ⇒ judgeModelId required; mode!=NONE ⇒ expectedOutput required; paramName ∈ {temperature,topP,maxTokens}; values = JSON array
+- Suite create/update → replaceChildren: delete testCases+paramSweeps esistenti poi insert (full replace, no JPA cascade)

@@ -1,0 +1,189 @@
+package com.example.llmlab.service;
+
+import com.example.llmlab.domain.ExpectedOutputMode;
+import com.example.llmlab.domain.ParamSweep;
+import com.example.llmlab.domain.TestCase;
+import com.example.llmlab.domain.TestSuite;
+import com.example.llmlab.dto.ParamSweepDto;
+import com.example.llmlab.dto.SuiteCreateRequest;
+import com.example.llmlab.dto.SuiteResponse;
+import com.example.llmlab.dto.TestCaseDto;
+import com.example.llmlab.repository.ParamSweepRepository;
+import com.example.llmlab.repository.RunResultRepository;
+import com.example.llmlab.repository.TestCaseRepository;
+import com.example.llmlab.repository.TestSuiteRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Business logic for suite management: validation of the evaluation strategy and sweep
+ * parameters, plus cascade create/replace of the nested test cases and parameter sweeps.
+ */
+@ApplicationScoped
+public class TestSuiteService {
+
+    private static final Set<String> VALID_PARAMS = Set.of("temperature", "topP", "maxTokens");
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @Inject
+    TestSuiteRepository suiteRepo;
+    @Inject
+    TestCaseRepository caseRepo;
+    @Inject
+    ParamSweepRepository sweepRepo;
+    @Inject
+    RunResultRepository resultRepo;
+
+    public List<SuiteResponse> list() {
+        return suiteRepo.findAll().stream().map(this::toResponse).toList();
+    }
+
+    public SuiteResponse get(Long id) {
+        return toResponse(requireSuite(id));
+    }
+
+    @Transactional
+    public SuiteResponse create(SuiteCreateRequest req) {
+        validate(req);
+        TestSuite suite = new TestSuite(req.name());
+        applyFields(suite, req);
+        suiteRepo.save(suite);
+        replaceChildren(suite.getId(), req);
+        return toResponse(requireSuite(suite.getId()));
+    }
+
+    @Transactional
+    public SuiteResponse update(Long id, SuiteCreateRequest req) {
+        validate(req);
+        TestSuite suite = requireSuite(id);
+        applyFields(suite, req);
+        suiteRepo.save(suite);
+        replaceChildren(id, req);
+        return toResponse(requireSuite(id));
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        if (suiteRepo.findById(id).isEmpty()) {
+            throw new SuiteNotFoundException(id);
+        }
+        for (TestCase tc : caseRepo.findAllBySuiteId(id)) {
+            caseRepo.delete(tc.getId());
+        }
+        for (ParamSweep ps : sweepRepo.findAllBySuiteId(id)) {
+            sweepRepo.delete(ps.getId());
+        }
+        suiteRepo.delete(id);
+    }
+
+    private TestSuite requireSuite(Long id) {
+        return suiteRepo.findById(id).orElseThrow(() -> new SuiteNotFoundException(id));
+    }
+
+    private void applyFields(TestSuite suite, SuiteCreateRequest req) {
+        suite.setName(req.name());
+        suite.setDescription(req.description());
+        suite.setExpectedOutput(req.expectedOutput());
+        suite.setExpectedOutputMode(req.expectedOutputMode());
+        suite.setJudgeModelId(req.judgeModelId());
+        suite.setJudgePrompt(req.judgePrompt());
+    }
+
+    /** Deletes existing children then inserts the request's (replacing the whole set). */
+    private void replaceChildren(Long suiteId, SuiteCreateRequest req) {
+        for (TestCase tc : caseRepo.findAllBySuiteId(suiteId)) {
+            caseRepo.delete(tc.getId());
+        }
+        for (ParamSweep ps : sweepRepo.findAllBySuiteId(suiteId)) {
+            sweepRepo.delete(ps.getId());
+        }
+        if (req.testCases() != null) {
+            for (TestCaseDto tc : req.testCases()) {
+                caseRepo.save(new TestCase(suiteId, tc.name(), tc.systemPrompt(), tc.userPrompt(), tc.sortOrder()));
+            }
+        }
+        if (req.paramSweeps() != null) {
+            for (ParamSweepDto ps : req.paramSweeps()) {
+                sweepRepo.save(new ParamSweep(suiteId, ps.paramName(), ps.values()));
+            }
+        }
+    }
+
+    private SuiteResponse toResponse(TestSuite suite) {
+        List<TestCaseDto> cases = caseRepo.findAllBySuiteId(suite.getId()).stream()
+                .map(tc -> new TestCaseDto(tc.getName(), tc.getSystemPrompt(), tc.getUserPrompt(), tc.getSortOrder()))
+                .toList();
+        List<ParamSweepDto> sweeps = sweepRepo.findAllBySuiteId(suite.getId()).stream()
+                .map(ps -> new ParamSweepDto(ps.getParamName(), ps.getValues()))
+                .toList();
+        return new SuiteResponse(
+                suite.getId(), suite.getName(), suite.getDescription(),
+                suite.getExpectedOutput(), suite.getExpectedOutputMode(),
+                suite.getJudgeModelId(), suite.getJudgePrompt(),
+                suite.getCreatedAt(), suite.getUpdatedAt(),
+                cases, sweeps,
+                resultRepo.findLatestRunAt(suite.getId()).orElse(null));
+    }
+
+    private void validate(SuiteCreateRequest req) {
+        if (req == null) {
+            throw new ValidationException("Request body is required");
+        }
+        if (isBlank(req.name())) {
+            throw new ValidationException("name is required");
+        }
+        if (req.expectedOutputMode() == null) {
+            throw new ValidationException("expectedOutputMode is required");
+        }
+        if (req.expectedOutputMode() == ExpectedOutputMode.NONE) {
+            if (req.judgeModelId() == null) {
+                throw new ValidationException("judgeModelId is required when expectedOutputMode is NONE");
+            }
+        } else if (isBlank(req.expectedOutput())) {
+            throw new ValidationException(
+                    "expectedOutput is required when expectedOutputMode is " + req.expectedOutputMode());
+        }
+        if (req.testCases() != null) {
+            for (TestCaseDto tc : req.testCases()) {
+                if (isBlank(tc.name())) {
+                    throw new ValidationException("testCase name is required");
+                }
+                if (isBlank(tc.userPrompt())) {
+                    throw new ValidationException("testCase userPrompt is required");
+                }
+            }
+        }
+        if (req.paramSweeps() != null) {
+            for (ParamSweepDto ps : req.paramSweeps()) {
+                if (!VALID_PARAMS.contains(ps.paramName())) {
+                    throw new ValidationException("paramName must be one of temperature, topP, maxTokens");
+                }
+                if (!isValidJsonArray(ps.values())) {
+                    throw new ValidationException("values must be a valid JSON array");
+                }
+            }
+        }
+    }
+
+    private static boolean isValidJsonArray(String values) {
+        if (isBlank(values)) {
+            return false;
+        }
+        try {
+            JsonNode node = MAPPER.readTree(values);
+            return node.isArray();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+}

@@ -201,15 +201,26 @@ duplicate name 409, missing field 400, update 200, update 404, delete 204, activ
 ## Step 8 — REST API: Suites
 **Goal:** suite CRUD with nested testCases[] and paramSweeps[].
 
-- [ ] `dto/SuiteCreateRequest.java` — nested `List<TestCaseDto>`, `List<ParamSweepDto>`
-- [ ] `dto/SuiteResponse.java` — includes testCases, paramSweeps, latest results summary
-- [ ] `rest/TestSuiteResource.java` (`/api/suites`):
+- [x] `dto/SuiteCreateRequest.java` — nested `List<TestCaseDto>`, `List<ParamSweepDto>`
+- [x] `dto/SuiteResponse.java` — includes testCases, paramSweeps, latest results summary
+- [x] `rest/TestSuiteResource.java` (`/api/suites`):
   - `GET /`, `POST /` (nested create), `GET /{id}`, `PUT /{id}`, `DELETE /{id}`
-- [ ] `service/TestSuiteService.java` — cascade create/replace testCases + paramSweeps,
+- [x] `service/TestSuiteService.java` — cascade create/replace testCases + paramSweeps,
   validate `expectedOutputMode` vs `expectedOutput`/`judgeModelId` consistency,
   validate `paramName` is one of temperature/topP/maxTokens, `values` is valid JSON array.
 
-**Verify:** curl round-trip: create suite with 2 cases + 2 sweeps → GET returns identical data.
+Notes from implementation:
+- `dto/TestCaseDto.java` (record: name, systemPrompt, userPrompt, sortOrder) + `dto/ParamSweepDto.java` (record: paramName, values).
+- `SuiteResponse` — suite fields + `List<TestCaseDto>` + `List<ParamSweepDto>` + `latestRunAt` (latest results summary).
+- `service/SuiteNotFoundException.java` (404). `TestSuiteService` — `list`/`get`/`create`/`update`/`delete`, all writes `@Transactional`.
+- `create`/`update` → `replaceChildren`: delete existing testCases + paramSweeps, then insert the request's (full replace).
+- `delete` → manually delete children (testCases, paramSweeps) then the suite (no JPA cascade; entities use plain `suiteId`).
+- Validation (400): name required; mode required; mode==NONE → judgeModelId required; mode!=NONE → expectedOutput required; each case needs name+userPrompt; each sweep paramName ∈ {temperature,topP,maxTokens} + values a valid JSON array (Jackson `readTree().isArray()`).
+- `RunResultRepository.findLatestRunAt(suiteId)` → `Optional<LocalDateTime>` via `select max(r.createdAt)`.
+
+**Verify (done):** `./mvnw test` → `TestSuiteResourceTest` (12 rest-assured tests) passes: round-trip create (2 cases + 2 sweeps) → GET identical,
+appears in list, missing name 400, mode-without-expectedOutput 400, NONE-without-judge 400, bad paramName 400, bad values 400,
+get 404, update 200, update 404, delete 204, delete 404.
 
 ---
 
@@ -329,7 +340,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 5 | TestRunnerService core | ✅ done |
 | 6 | Judge evaluation | ✅ done |
 | 7 | REST: Models | ✅ done |
-| 8 | REST: Suites | ⬜ not started |
+| 8 | REST: Suites | ✅ done |
 | 9 | REST: Run + Results | ⬜ not started |
 | 10 | Seed data | ⬜ not started |
 | 11 | Frontend: layout + theme | ⬜ not started |
