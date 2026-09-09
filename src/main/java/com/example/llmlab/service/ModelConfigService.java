@@ -84,6 +84,15 @@ public class ModelConfigService {
         repository.delete(id);
     }
 
+    /** Deactivates every model, leaving no active model. */
+    @Transactional
+    public void deactivateAll() {
+        for (ModelConfig model : repository.findAll()) {
+            model.setActive(false);
+            repository.save(model);
+        }
+    }
+
     /** Sets the given model active and deactivates every other model (atomic). */
     @Transactional
     public ModelConfigResponse activate(Long id) {

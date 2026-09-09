@@ -43,4 +43,10 @@ public class ParamSweepRepository {
             em.remove(entity);
         }
     }
+
+    /** Wipes the whole table (used by the admin clean). */
+    @Transactional
+    public void deleteAll() {
+        em.createNativeQuery("DELETE FROM param_sweep").executeUpdate();
+    }
 }

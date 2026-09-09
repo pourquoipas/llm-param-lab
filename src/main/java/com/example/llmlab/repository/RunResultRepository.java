@@ -62,4 +62,10 @@ public class RunResultRepository {
             em.remove(entity);
         }
     }
+
+    /** Wipes the whole table (used by the admin clean, called first in FK order). */
+    @Transactional
+    public void deleteAll() {
+        em.createNativeQuery("DELETE FROM run_result").executeUpdate();
+    }
 }

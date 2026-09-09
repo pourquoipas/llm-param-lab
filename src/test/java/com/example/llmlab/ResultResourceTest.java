@@ -1,8 +1,10 @@
 package com.example.llmlab;
 
+import com.example.llmlab.service.ModelConfigService;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -25,6 +27,9 @@ import static org.hamcrest.Matchers.equalTo;
 class ResultResourceTest {
 
     static final AtomicInteger SEQ = new AtomicInteger();
+
+    @Inject
+    ModelConfigService modelConfigService;
 
     private static String uniqueName() {
         return "rest-result-suite-" + SEQ.incrementAndGet();
@@ -66,20 +71,24 @@ class ResultResourceTest {
     @Test
     void runSuiteNoActiveModelReturns400() {
         Long id = create(validBody(uniqueName()));
+        modelConfigService.deactivateAll();
         try {
             given().when().post("/api/suites/" + id + "/run").then().statusCode(400);
         } finally {
             delete(id);
+            modelConfigService.ensureDefaultModel();
         }
     }
 
     @Test
     void runAllNoActiveModelReturns400() {
         Long id = create(validBody(uniqueName()));
+        modelConfigService.deactivateAll();
         try {
             given().when().post("/api/run-all").then().statusCode(400);
         } finally {
             delete(id);
+            modelConfigService.ensureDefaultModel();
         }
     }
 

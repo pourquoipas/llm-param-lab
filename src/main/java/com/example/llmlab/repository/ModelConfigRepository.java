@@ -59,4 +59,10 @@ public class ModelConfigRepository {
             em.remove(entity);
         }
     }
+
+    /** Wipes the whole table (used by the admin clean, called last in FK order). */
+    @Transactional
+    public void deleteAll() {
+        em.createNativeQuery("DELETE FROM model_config").executeUpdate();
+    }
 }

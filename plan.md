@@ -371,12 +371,13 @@ Notes:
 ## Step 17 — Admin endpoints (clean DB + insert test case)
 **Goal:** two endpoints to reset the DB and to insert a minimal live test case.
 
-- [ ] `AdminService` + `AdminResource` (`/api/admin`).
-- [ ] `POST /api/admin/clean` → wipe all tables in FK order (run_result → test_case → param_sweep → test_suite → model_config).
-- [ ] `POST /api/admin/test-case` → ensure default model exists (active, from `LlmConfig`) + create a suite "Agent smoke test" with 2 test cases (distinct system+user prompts) and a temperature sweep `[0.5, 0.8]`; judge = default model.
-- [ ] Tests: clean empties all tables; test-case creates active model + 2 cases + temp sweep; idempotent-ish (re-runnable).
+- [x] `AdminService` + `AdminResource` (`/api/admin`).
+- [x] `POST /api/admin/clean` → wipe all tables in FK order (run_result → test_case → param_sweep → test_suite → model_config).
+- [x] `POST /api/admin/test-case` → ensure default model exists (active, from `LlmConfig`) + create a suite "Agent smoke test" with 2 test cases (distinct system+user prompts) and a temperature sweep `[0.5, 0.8]`; judge = default model.
+- [x] Tests: clean empties all tables (re-seeds after); test-case creates active model + 2 cases + temp sweep; idempotent (re-runnable).
+- [x] `ModelConfigService.deactivateAll()` + `ResultResourceTest` "no active model" tests made deterministic (deactivate all → 400, no LLM call; restore default in `finally`).
 
-**Verify:** `./mvnw test` green; curl clean → all lists empty; curl test-case → 1 active model + suite with 2 cases + temp [0.5,0.8].
+**Verify (done):** `./mvnw test` → 46 green. `ResultResourceTest` green in isolation (no LLM dependency).
 
 ## Step 18 — UI admin buttons
 **Goal:** two top-bar buttons wired to the admin endpoints.
@@ -432,6 +433,6 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 14 | Frontend: Results tab | ✅ done |
 | 15 | README + E2E | ✅ done |
 | 16 | LLM config in `.env` + default model | ✅ done |
-| 17 | Admin endpoints (clean DB + test case) | ⬜ not started |
+| 17 | Admin endpoints (clean DB + test case) | ✅ done |
 | 18 | UI admin buttons | ⬜ not started |
 | 19 | README + final E2E | ⬜ not started |

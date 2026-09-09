@@ -39,6 +39,15 @@ public class SeedData {
 
     @Transactional
     void onStartup(@Observes StartupEvent event) {
+        seed();
+    }
+
+    /**
+     * Idempotent: seeds only when the relevant tables are empty. Public so tests can re-seed
+     * after wiping the shared in-memory DB (e.g. the admin clean test).
+     */
+    @Transactional
+    public void seed() {
         seedModels();
         seedSuite();
     }
