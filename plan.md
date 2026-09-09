@@ -388,14 +388,14 @@ Notes:
 
 **Verify (done):** `node --check app.js` OK. Fresh boot → both buttons present; POST test-case → 201 + "Agent smoke test" (2 cases, temp [0.5,0.8], default model active); POST clean → 204 + models/suites `[]`.
 
-## Step 19 — README + final E2E
+## Step 19 — README + final E2E ✅ done
 **Goal:** documented, fully working tool with the new features.
 
-- [ ] `README.md`: document `.env` (LLM config) + the two admin buttons/endpoints + updated quick start.
-- [ ] Final E2E: clean `./data/`, boot jar, verify default model + example suite, click/POST test-case, run it (clean 500 if no LLM), clean DB.
-- [ ] `./mvnw clean package` succeeds (non-dev build).
+- [x] `README.md`: document `.env` (LLM config) + the two admin buttons/endpoints + updated quick start.
+- [x] Final E2E: clean `./data/`, boot jar, verify default model + example suite, POST test-case (201), clean DB (204).
+- [x] `./mvnw clean package` succeeds (non-dev build).
 
-**Verify:** checklist green; `./mvnw clean package` + `java -jar` boots; admin endpoints + buttons work.
+**Verify (done):** `./mvnw clean package` OK; fresh boot → default model (active, from `.env`) + "JSON extraction test" suite; POST test-case → 201; POST clean → 204 + models/suites `[]`.
 
 ---
 
@@ -435,4 +435,4 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 16 | LLM config in `.env` + default model | ✅ done |
 | 17 | Admin endpoints (clean DB + test case) | ✅ done |
 | 18 | UI admin buttons | ✅ done |
-| 19 | README + final E2E | ⬜ not started |
+| 19 | README + final E2E | ✅ done |

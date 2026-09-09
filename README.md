@@ -12,16 +12,37 @@ a second "judge" LLM. Built with Java 21, Quarkus 3 and Langchain4j 1.x.
 
 ## Quick start
 
-1. `mvn quarkus:dev`
+1. `./mvnw quarkus:dev`
 2. Open http://localhost:8080 in a browser
-3. Add a model (Models tab)
-4. Create a suite (Suites tab)
+3. The default model (from `.env`) is already active — or add your own (Models tab)
+4. Click **＋ Test case** (top bar) to insert a ready-to-run suite, or create one (Suites tab)
 5. Click "Run Suite"
 6. Check results (Results tab)
 
-On first start the app seeds two models (`local-llama`, `remote-gpt`) and one
-example suite (`JSON extraction test`). Seeding is idempotent — it only runs when
-the tables are empty, so restarts never duplicate data.
+On first start the app seeds ONE default model (from `.env`, flagged active) and
+one example suite (`JSON extraction test`). Seeding is idempotent — it only runs
+when the tables are empty, so restarts never duplicate data.
+
+The top bar has two admin buttons:
+- **＋ Test case** — inserts a minimal live suite (`Agent smoke test`: 2 test cases
+  with distinct system/user prompts × temperature `[0.5, 0.8]`, judged by the default model).
+- **Clean DB** — wipes the entire database (all models, suites, and results).
+
+## Configuration (.env)
+
+The default LLM is configured in a gitignored `.env` file in the project root
+(copy `.env.example` to start). Quarkus maps the keys to `llm.*`:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `LLM_PROVIDER` | `OPENAI_COMPATIBLE` | `OPENAI_COMPATIBLE` or `OLLAMA` |
+| `LLM_BASE_URL` | `http://localhost:11000/v1` | Base URL of the LLM endpoint |
+| `LLM_MODEL_NAME` | `Qwen3.8-27B-UD-IQ3_S.gguf` | Model name to request |
+| `LLM_API_KEY` | *(empty)* | API key (optional) |
+
+On first start the app creates a single **default** model from these values and
+flags it active. The same model is used for execution (the active model) and for
+evaluation (the judge), so one `.env` drives both.
 
 ## Schema versioning
 
@@ -66,6 +87,13 @@ Base path: `http://localhost:8080`
 | POST | `/api/run-all` | Run every suite, returns all results |
 | GET | `/api/results?suiteId={id}&testCaseId={id}` | Filtered results |
 | GET | `/api/results/summary?suiteId={id}` | Per-suite summary (best param combo per test case) |
+
+### Admin
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/admin/clean` | Wipe the entire database (204) |
+| POST | `/api/admin/test-case` | Insert the `Agent smoke test` suite (201) |
 
 ### Example: create a model
 
