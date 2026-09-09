@@ -5,6 +5,7 @@ import com.example.llmlab.domain.ExpectedOutputMode;
 import com.example.llmlab.domain.ParamSweep;
 import com.example.llmlab.domain.TestCase;
 import com.example.llmlab.domain.TestSuite;
+import com.example.llmlab.dto.JudgeResponse;
 import com.example.llmlab.service.TestRunnerService;
 import com.example.llmlab.service.TestRunnerService.Evaluation;
 import org.junit.jupiter.api.Assertions;
@@ -71,12 +72,54 @@ class TestRunnerServiceTest {
     }
 
     @Test
-    void judgePathReturnsJudgeType() {
+    void buildJudgePromptSubstitutesPlaceholders() {
         TestSuite suite = new TestSuite("s");
-        suite.setJudgeModelId(99L);
-        Evaluation e = service.evaluate(suite, new TestCase(1L, "c", null, "hi", 0), "out");
-        Assertions.assertEquals(EvaluationType.JUDGE_LLM, e.type());
-        Assertions.assertNull(e.score());
+        suite.setJudgePrompt("T={{task}} E={{expected}} R={{response}}");
+        TestCase tc = new TestCase(1L, "c", null, "do the thing", 0);
+        String prompt = service.buildJudgePrompt(suite, tc, "the answer");
+        Assertions.assertEquals("T=do the thing E=N/A R=the answer", prompt);
+    }
+
+    @Test
+    void buildJudgePromptUsesExpectedWhenPresent() {
+        TestSuite suite = new TestSuite("s");
+        suite.setJudgePrompt("E={{expected}}");
+        suite.setExpectedOutput("42");
+        TestCase tc = new TestCase(1L, "c", null, "q", 0);
+        String prompt = service.buildJudgePrompt(suite, tc, "out");
+        Assertions.assertEquals("E=42", prompt);
+    }
+
+    @Test
+    void parseJudgeResponsePlainJson() {
+        JudgeResponse r = service.parseJudgeResponse("{\"score\": 0.8, \"reason\": \"good\"}");
+        Assertions.assertNotNull(r);
+        Assertions.assertEquals(0.8, r.score().doubleValue(), 1e-9);
+        Assertions.assertEquals("good", r.reason());
+    }
+
+    @Test
+    void parseJudgeResponseFencedJson() {
+        String raw = "Here is my verdict:\n```json\n{\"score\": 0.5, \"reason\": \"ok\"}\n```\nHope that helps!";
+        JudgeResponse r = service.parseJudgeResponse(raw);
+        Assertions.assertNotNull(r);
+        Assertions.assertEquals(0.5, r.score().doubleValue(), 1e-9);
+        Assertions.assertEquals("ok", r.reason());
+    }
+
+    @Test
+    void parseJudgeResponseExtraTextAroundJson() {
+        String raw = "Sure! {\"score\": 0.9, \"reason\": \"great\"} Let me know.";
+        JudgeResponse r = service.parseJudgeResponse(raw);
+        Assertions.assertNotNull(r);
+        Assertions.assertEquals(0.9, r.score().doubleValue(), 1e-9);
+    }
+
+    @Test
+    void parseJudgeResponseGarbageReturnsNull() {
+        Assertions.assertNull(service.parseJudgeResponse("I cannot produce a score."));
+        Assertions.assertNull(service.parseJudgeResponse(null));
+        Assertions.assertNull(service.parseJudgeResponse(""));
     }
 
     private TestSuite suiteWithExpected(String expected, ExpectedOutputMode mode) {

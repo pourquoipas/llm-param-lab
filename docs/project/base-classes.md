@@ -10,6 +10,9 @@
 - TestRunnerService → runSuite / runAll (cartesian product + evaluation)
 - SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
 
+## DTO
+- JudgeResponse → record { score, reason } da JSON del judge (@JsonIgnoreProperties ignoreUnknown)
+
 ## Domain
 - ModelConfig → provider, baseUrl, modelName, isActive
 - TestSuite → expectedOutput, judgeModelId, judgePrompt
@@ -20,3 +23,4 @@
 ## Regola
 - ModelFactory → mai parametri nel builder, sempre a call-time
 - TestRunnerService → max 1 run concorrente per suite (ConcurrentHashMap lock)
+- Judge → temperature 0, passed = score >= 0.5 (JUDGE_PASS_THRESHOLD)

@@ -153,14 +153,23 @@ Notes from implementation:
 ## Step 6 — Judge LLM evaluation
 **Goal:** judge path produces `score` (0.0–1.0) + `scoreReason`.
 
-- [ ] In `TestRunnerService`, when no expectedOutput:
+- [x] In `TestRunnerService`, when no expectedOutput:
   - Judge prompt = `suite.judgePrompt` or `app.default-judge-prompt` from config.
   - Replace `{{task}}`, `{{expected}}` (or `"N/A"`), `{{response}}`.
   - Call judge model (temperature 0, no params sweep).
   - Parse JSON leniently: strip markdown code fences → trim → Jackson parse into `JudgeResponse { score, reason }`.
   - Parse failure → `score = null`, `scoreReason = "judge parse error: ..."`.
 
-**Verify:** compiles; test the JSON-stripping + parsing with sample LLM replies (```json fences, extra text).
+Notes from implementation:
+- `dto/JudgeResponse.java` (new) — record `{ Double score, String reason }`, `@JsonIgnoreProperties(ignoreUnknown = true)`.
+- `evaluateWithJudge` looks up the judge `ModelConfig` by `suite.judgeModelId`, builds the prompt,
+  calls the judge at temperature 0, parses the verdict. `passed = score >= 0.5` (`JUDGE_PASS_THRESHOLD`).
+- Pure, DB/model-free helpers (public, unit-tested): `buildJudgePrompt`, `stripCodeFences`, `parseJudgeResponse`.
+- `stripCodeFences` strips ``` fences then isolates the first `{`…last `}` so surrounding prose is tolerated.
+
+**Verify (done):** `./mvnw test` → `TestRunnerServiceTest` (12 tests) passes: placeholder substitution
+(task/expected/response, expected→"N/A"), JSON parse of plain / ```json-fenced / prose-wrapped replies,
+garbage→null. No DB, no model call.
 
 ---
 
@@ -308,7 +317,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 3 | Entities + repositories | ✅ done |
 | 4 | ModelFactory | ✅ done |
 | 5 | TestRunnerService core | ✅ done |
-| 6 | Judge evaluation | ⬜ not started |
+| 6 | Judge evaluation | ✅ done |
 | 7 | REST: Models | ⬜ not started |
 | 8 | REST: Suites | ⬜ not started |
 | 9 | REST: Run + Results | ⬜ not started |

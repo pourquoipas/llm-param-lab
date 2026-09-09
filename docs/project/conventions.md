@@ -20,5 +20,7 @@
 - UI chiama API → fetch() in app.js, non inline in HTML
 - Parametri LLM (temperature/topP/maxTokens) → mai nel builder del modello, sempre in ChatRequestParameters a runtime
 - paramName sweep → builder: temperature→.temperature, topP→.topP, maxTokens→.maxOutputTokens
+- Judge prompt → placeholder {{task}}/{{expected}}/{{response}} (expected → "N/A" se null)
+- JSON judge → parse leniente: strip ``` fence → isola {…} → Jackson (fallimento → score=null)
 - Schema DB → solo Liquibase, mai Hibernate ddl-auto
 - Changelog Liquibase → mai modificare file esistenti, sempre nuovo file in db/changelog/changes/

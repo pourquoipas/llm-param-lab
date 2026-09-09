@@ -9,6 +9,7 @@ import com.example.llmlab.domain.ParamSweep;
 import com.example.llmlab.domain.RunResult;
 import com.example.llmlab.domain.TestCase;
 import com.example.llmlab.domain.TestSuite;
+import com.example.llmlab.dto.JudgeResponse;
 import com.example.llmlab.repository.ModelConfigRepository;
 import com.example.llmlab.repository.ParamSweepRepository;
 import com.example.llmlab.repository.RunResultRepository;
@@ -43,6 +44,9 @@ import java.util.regex.Pattern;
  */
 @ApplicationScoped
 public class TestRunnerService {
+
+    /** A judge verdict counts as a pass at or above this score. */
+    private static final double JUDGE_PASS_THRESHOLD = 0.5;
 
     @Inject
     ModelConfigRepository modelConfigRepository;
@@ -172,8 +176,8 @@ public class TestRunnerService {
     }
 
     /**
-     * Pure: picks the evaluation strategy.
-     * expectedOutput set → expected-output match; else judgeModelId set → judge; else SKIPPED.
+     * Picks the evaluation strategy.
+     * expectedOutput set → expected-output match; else judgeModelId set → judge LLM call; else SKIPPED.
      */
     public Evaluation evaluate(TestSuite suite, TestCase testCase, String rawOutput) {
         if (suite.getExpectedOutput() != null) {
@@ -216,12 +220,88 @@ public class TestRunnerService {
     }
 
     /**
-     * Judge-LLM evaluation (implemented in Step 6). Stub for now: returns a JUDGE_LLM
-     * result with no score so the runner is end-to-end runnable before the judge exists.
+     * Judge-LLM evaluation: builds the judge prompt, calls the judge model at temperature 0,
+     * and parses the JSON verdict. A parse failure yields score=null with a "judge parse error" reason.
      */
     Evaluation evaluateWithJudge(TestSuite suite, TestCase testCase, String rawOutput) {
-        return new Evaluation(null, "judge: not implemented yet (Step 6)",
-                EvaluationType.JUDGE_LLM, null);
+        ModelConfig judgeModel = modelConfigRepository.findById(suite.getJudgeModelId())
+                .orElseThrow(() -> new IllegalStateException("Judge model not found: " + suite.getJudgeModelId()));
+        ChatModel judge = modelFactory.create(judgeModel);
+
+        String prompt = buildJudgePrompt(suite, testCase, rawOutput);
+        ChatRequest request = ChatRequest.builder()
+                .messages(List.of(UserMessage.from(prompt)))
+                .parameters(ChatRequestParameters.builder().temperature(0.0).build())
+                .build();
+
+        ChatResponse response = judge.chat(request);
+        String judgeRaw = response.aiMessage() != null ? response.aiMessage().text() : null;
+        JudgeResponse verdict = parseJudgeResponse(judgeRaw);
+        if (verdict == null || verdict.score() == null) {
+            return new Evaluation(null, "judge parse error: " + judgeRaw, EvaluationType.JUDGE_LLM, null);
+        }
+        double score = verdict.score();
+        return new Evaluation(score, verdict.reason(), EvaluationType.JUDGE_LLM, score >= JUDGE_PASS_THRESHOLD);
+    }
+
+    /**
+     * Pure: builds the judge prompt by substituting {{task}}, {{expected}}, {{response}}
+     * into the suite's judge prompt (falling back to the configured default prompt).
+     */
+    public String buildJudgePrompt(TestSuite suite, TestCase testCase, String rawOutput) {
+        String template = (suite.getJudgePrompt() != null && !suite.getJudgePrompt().isBlank())
+                ? suite.getJudgePrompt()
+                : appConfig.getDefaultJudgePrompt();
+        String task = testCase.getUserPrompt() == null ? "" : testCase.getUserPrompt();
+        String expected = suite.getExpectedOutput() == null ? "N/A" : suite.getExpectedOutput();
+        String response = rawOutput == null ? "" : rawOutput;
+        return template
+                .replace("{{task}}", task)
+                .replace("{{expected}}", expected)
+                .replace("{{response}}", response);
+    }
+
+    /**
+     * Pure: strips markdown code fences and isolates the JSON object from any surrounding text.
+     */
+    public String stripCodeFences(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String s = raw.trim();
+        int fenceStart = s.indexOf("```");
+        if (fenceStart >= 0) {
+            int contentStart = s.indexOf('\n', fenceStart);
+            if (contentStart < 0) {
+                contentStart = fenceStart + 3;
+            }
+            int fenceEnd = s.lastIndexOf("```");
+            if (fenceEnd > contentStart) {
+                s = s.substring(contentStart, fenceEnd);
+            }
+        }
+        int objStart = s.indexOf('{');
+        int objEnd = s.lastIndexOf('}');
+        if (objStart >= 0 && objEnd > objStart) {
+            s = s.substring(objStart, objEnd + 1);
+        }
+        return s.trim();
+    }
+
+    /**
+     * Pure: leniently parses a judge reply into a {@link JudgeResponse}.
+     * Returns null when no valid JSON verdict can be extracted.
+     */
+    public JudgeResponse parseJudgeResponse(String raw) {
+        String cleaned = stripCodeFences(raw);
+        if (cleaned == null || cleaned.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(cleaned, JudgeResponse.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private ChatRequestParameters buildParameters(Map<String, Object> combo) {
