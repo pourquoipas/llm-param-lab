@@ -1,7 +1,9 @@
 package com.example.llmlab.rest;
 
+import com.example.llmlab.domain.RunResult;
 import com.example.llmlab.dto.SuiteCreateRequest;
 import com.example.llmlab.dto.SuiteResponse;
+import com.example.llmlab.service.TestRunnerService;
 import com.example.llmlab.service.TestSuiteService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -27,9 +29,19 @@ public class TestSuiteResource {
     @Inject
     TestSuiteService service;
 
+    @Inject
+    TestRunnerService runner;
+
     @GET
     public List<SuiteResponse> list() {
         return service.list();
+    }
+
+    /** Runs the suite synchronously and returns its results. */
+    @POST
+    @Path("/{id}/run")
+    public List<RunResult> run(@PathParam("id") Long id) {
+        return runner.runSuite(id);
     }
 
     @GET

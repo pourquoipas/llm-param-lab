@@ -227,15 +227,20 @@ get 404, update 200, update 404, delete 204, delete 404.
 ## Step 9 — REST API: Run + Results
 **Goal:** trigger runs and query results.
 
-- [ ] `rest/ResultResource.java`:
-  - `POST /api/suites/{id}/run` → synchronous `runSuite`, returns `List<RunResult>` (409 if already running)
+- [x] `rest/ResultResource.java`:
   - `POST /api/run-all` → `runAll()`
   - `GET /api/results?suiteId=&testCaseId=` — filter
   - `GET /api/results/summary?suiteId=` → `RunSummaryResponse`: per test case, best param combo (highest avg score), table of all combos with avg score + min/max latency
-- [ ] `dto/RunSummaryResponse.java`
+- [x] `POST /api/suites/{id}/run` → synchronous `runSuite`, returns `List<RunResult>` (409 if already running) — lives in `TestSuiteResource`
+- [x] `dto/RunSummaryResponse.java`
 
-**Verify:** with a fake/offline scenario — at minimum: no-active-model and no-suite error paths (4xx),
-and a mock-free check that endpoints exist and return 200/4xx correctly. Real run verified in Step 15 if LLM available.
+Notes from implementation:
+- `POST /api/suites/{id}/run` moved into `TestSuiteResource` (not `ResultResource`): a cross-resource path overlap (`/api/suites` vs `/api` + `/suites/{id}/run`) made RESTEasy return the default 404 HTML. Keeping suite-scoped routes in one resource fixes routing.
+- `service/ResultService.java` — `results(suiteId, testCaseId)` (dynamic JPQL filter, both optional) + `summary(suiteId)` (groups results by testCase → by paramsJson; best combo = highest avg score; min/max latency per combo).
+- `dto/RunSummaryResponse.java` — `suiteId` + `List<TestCaseSummary>`; each has `bestCombo` + `List<ComboSummary>` (paramsJson, avgScore, min/maxLatencyMs, runCount).
+- Exceptions now typed for the REST layer: `SuiteAlreadyRunningException` → 409, `SuiteNotFoundException` (reused) → 404, new `NoActiveModelException` → 400. `TestRunnerService.runSuite` throws these (was generic `IllegalArgument`/`IllegalState`).
+
+**Verify (done):** `./mvnw test` → `ResultResourceTest` (6 rest-assured tests) passes: run unknown suite 404, run no-active-model 400, run-all no-active-model 400, results unknown suite → `[]`, summary unknown suite 404, summary valid suite no results → empty. All 42 tests green. Real run verified in Step 15 if LLM available.
 
 ---
 
@@ -341,7 +346,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 6 | Judge evaluation | ✅ done |
 | 7 | REST: Models | ✅ done |
 | 8 | REST: Suites | ✅ done |
-| 9 | REST: Run + Results | ⬜ not started |
+| 9 | REST: Run + Results | ✅ done |
 | 10 | Seed data | ⬜ not started |
 | 11 | Frontend: layout + theme | ⬜ not started |
 | 12 | Frontend: Models tab | ⬜ not started |

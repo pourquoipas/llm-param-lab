@@ -11,9 +11,12 @@
 - SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
 - ApiException → base RuntimeException con status HTTP (404/409/400) + sottoclassi *Exception
 - SuiteNotFoundException → suite non trovata (→ HTTP 404)
+- ResultService → results(suiteId,testCaseId) + summary(suiteId) (best combo per test case)
+- NoActiveModelException → nessun modello attivo (→ HTTP 400)
 
 ## REST
 - ApiExceptionMapper → @Provider ExceptionMapper<ApiException> → JSON {"error": msg}
+- ResultResource → /api/run-all, /api/results, /api/results/summary (run suite in TestSuiteResource)
 
 ## DTO
 - JudgeResponse → record { score, reason } da JSON del judge (@JsonIgnoreProperties ignoreUnknown)
@@ -22,6 +25,7 @@
 - SuiteResponse → record suite + testCases + paramSweeps + latestRunAt
 - TestCaseDto → record { name, systemPrompt, userPrompt, sortOrder }
 - ParamSweepDto → record { paramName, values (JSON array string) }
+- RunSummaryResponse → suiteId + List<TestCaseSummary> (bestCombo + combos: paramsJson, avgScore, min/maxLatency)
 
 ## Domain
 - ModelConfig → provider, baseUrl, modelName, isActive

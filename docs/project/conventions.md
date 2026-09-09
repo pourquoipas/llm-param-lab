@@ -29,3 +29,5 @@
 - REST JSON → quarkus-rest-jackson (non quarkus-jackson standalone) per reader/writer body REST
 - Suite validation → mode==NONE ⇒ judgeModelId required; mode!=NONE ⇒ expectedOutput required; paramName ∈ {temperature,topP,maxTokens}; values = JSON array
 - Suite create/update → replaceChildren: delete testCases+paramSweeps esistenti poi insert (full replace, no JPA cascade)
+- Routing → route suite-scoped in ONE *Resource (overlap cross-resource /api/suites vs /api+/suites/{id}/run → 404 HTML default)
+- Run exceptions → SuiteAlreadyRunning 409, SuiteNotFound 404, NoActiveModel 400 (tutte ApiException)

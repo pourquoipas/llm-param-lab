@@ -74,8 +74,8 @@ public class TestRunnerService {
      * Runs one suite: every test case × every parameter combination, against the active model.
      *
      * @throws SuiteAlreadyRunningException if this suite is already running
-     * @throws IllegalArgumentException     if the suite does not exist
-     * @throws IllegalStateException        if no model is active
+     * @throws SuiteNotFoundException       if the suite does not exist
+     * @throws NoActiveModelException       if no model is active
      */
     public List<RunResult> runSuite(Long suiteId) {
         if (runningSuites.putIfAbsent(suiteId, Boolean.TRUE) != null) {
@@ -83,11 +83,11 @@ public class TestRunnerService {
         }
         try {
             TestSuite suite = testSuiteRepository.findById(suiteId)
-                    .orElseThrow(() -> new IllegalArgumentException("Suite not found: " + suiteId));
+                    .orElseThrow(() -> new SuiteNotFoundException(suiteId));
             List<TestCase> testCases = testCaseRepository.findAllBySuiteId(suiteId);
             List<ParamSweep> sweeps = paramSweepRepository.findAllBySuiteId(suiteId);
             ModelConfig model = modelConfigRepository.findActive()
-                    .orElseThrow(() -> new IllegalStateException("No active model configured"));
+                    .orElseThrow(NoActiveModelException::new);
 
             ChatModel chatModel = modelFactory.create(model);
             List<Map<String, Object>> combos = cartesianProduct(sweeps);
