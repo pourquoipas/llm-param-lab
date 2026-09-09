@@ -619,11 +619,49 @@ async function runAll() {
   }
 }
 
+// ---- Admin actions (top bar) -----------------------------------------------
+async function insertTestCase() {
+  const btn = document.getElementById('btn-test-case');
+  btn.disabled = true;
+  showSpinner();
+  try {
+    await api('/api/admin/test-case', { method: 'POST' });
+    toast('Test case inserted: "Agent smoke test"', 'success');
+    await renderActiveModel();
+    switchTab('suites');
+  } catch (e) { /* toast already shown */ }
+  finally {
+    hideSpinner();
+    btn.disabled = false;
+  }
+}
+
+async function cleanDatabase() {
+  if (!confirm('Clean the entire database? This deletes all models, suites, and results.')) return;
+  const btn = document.getElementById('btn-clean-db');
+  btn.disabled = true;
+  showSpinner();
+  try {
+    await api('/api/admin/clean', { method: 'POST' });
+    toast('Database cleaned', 'success');
+    state.suiteDraft = null;
+    state.selectedSuiteId = null;
+    await renderActiveModel();
+    switchTab('models');
+  } catch (e) { /* toast already shown */ }
+  finally {
+    hideSpinner();
+    btn.disabled = false;
+  }
+}
+
 // ---- Init ------------------------------------------------------------------
 function init() {
   document.querySelectorAll('.tab').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
+  document.getElementById('btn-test-case').addEventListener('click', insertTestCase);
+  document.getElementById('btn-clean-db').addEventListener('click', cleanDatabase);
   renderActiveModel();
   switchTab('models');
 }

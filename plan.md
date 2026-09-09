@@ -382,11 +382,11 @@ Notes:
 ## Step 18 — UI admin buttons
 **Goal:** two top-bar buttons wired to the admin endpoints.
 
-- [ ] `index.html`: two buttons in the top bar (e.g. "＋ Test case", "🗑 Clean DB").
-- [ ] `app.js`: `insertTestCase()` (POST `/api/admin/test-case`) + `cleanDatabase()` (POST `/api/admin/clean`, with confirm), then re-render.
-- [ ] `styles.css`: button styling consistent with the theme.
+- [x] `index.html`: two buttons in the top bar ("＋ Test case", "Clean DB"), grouped right with the active-model indicator.
+- [x] `app.js`: `insertTestCase()` (POST `/api/admin/test-case`) + `cleanDatabase()` (POST `/api/admin/clean`, with confirm), then re-render + switch tab.
+- [x] `styles.css`: `.topbar-right` / `.topbar-actions` / `.topbar-btn` (+ danger hover) consistent with the theme.
 
-**Verify:** `node --check app.js`; boot → both buttons present, clicking test-case populates a runnable suite, clicking clean empties the UI.
+**Verify (done):** `node --check app.js` OK. Fresh boot → both buttons present; POST test-case → 201 + "Agent smoke test" (2 cases, temp [0.5,0.8], default model active); POST clean → 204 + models/suites `[]`.
 
 ## Step 19 — README + final E2E
 **Goal:** documented, fully working tool with the new features.
@@ -434,5 +434,5 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 15 | README + E2E | ✅ done |
 | 16 | LLM config in `.env` + default model | ✅ done |
 | 17 | Admin endpoints (clean DB + test case) | ✅ done |
-| 18 | UI admin buttons | ⬜ not started |
+| 18 | UI admin buttons | ✅ done |
 | 19 | README + final E2E | ⬜ not started |

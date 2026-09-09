@@ -39,6 +39,10 @@ html, body {
   background: var(--muted); display: inline-block;
 }
 .topbar-model .dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.topbar-actions { display: flex; gap: 8px; }
+.topbar-btn { padding: 6px 12px; }
+.topbar-btn-danger:hover { border-color: var(--error); color: var(--error); }
 
 /* Tabs */
 .tabs { display: flex; gap: 4px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--border); }

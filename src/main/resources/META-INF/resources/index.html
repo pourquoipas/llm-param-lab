@@ -9,9 +9,15 @@
 <body>
   <header class="topbar">
     <div class="topbar-title">LLM Param Lab</div>
-    <div class="topbar-model" id="active-model">
-      <span class="dot" id="active-model-dot"></span>
-      <span id="active-model-name">loading…</span>
+    <div class="topbar-right">
+      <div class="topbar-model" id="active-model">
+        <span class="dot" id="active-model-dot"></span>
+        <span id="active-model-name">loading…</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="topbar-btn" id="btn-test-case">＋ Test case</button>
+        <button class="topbar-btn topbar-btn-danger" id="btn-clean-db">Clean DB</button>
+      </div>
     </div>
   </header>
 

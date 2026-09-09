@@ -9,6 +9,7 @@
 - *Exception (service/) → eccezioni API con status HTTP (base ApiException)
 - META-INF/resources/*.html|js|css → frontend statico (SPA: index.html + styles.css + app.js)
 - SPA app.js → state object + api() fetch wrapper (non-2xx → toast+throw) + switchTab() + openModal() + toast()
+- Top bar admin → #btn-test-case (POST /api/admin/test-case → switchTab suites) + #btn-clean-db (POST /api/admin/clean, confirm → switchTab models)
 - Suite editor → state.suiteDraft (working copy) + input live-bound; save = POST new / PUT existing (full replace testCases+paramSweeps)
 
 ## Config (.env + application.yml)
