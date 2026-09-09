@@ -6,6 +6,7 @@
 - *Repository.java → data access → EntityManager + @ApplicationScoped, @Transactional solo sulle scritture
 - *Entity (domain/) → entity JPA
 - *Request/*Response (dto/) → payload REST
+- *Exception (service/) → eccezioni API con status HTTP (base ApiException)
 - META-INF/resources/*.html|js|css → frontend statico
 
 ## Config (application.yml)
@@ -24,3 +25,5 @@
 - JSON judge → parse leniente: strip ``` fence → isola {…} → Jackson (fallimento → score=null)
 - Schema DB → solo Liquibase, mai Hibernate ddl-auto
 - Changelog Liquibase → mai modificare file esistenti, sempre nuovo file in db/changelog/changes/
+- @Consumes(APPLICATION_JSON) → solo sui metodi che leggono body (create/update), mai a livello classe (POST senza body → 415)
+- REST JSON → quarkus-rest-jackson (non quarkus-jackson standalone) per reader/writer body REST

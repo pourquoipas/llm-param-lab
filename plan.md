@@ -176,15 +176,25 @@ garbage→null. No DB, no model call.
 ## Step 7 — REST API: Models
 **Goal:** full model management.
 
-- [ ] `rest/ModelConfigResource.java` (`/api/models`):
+- [x] `rest/ModelConfigResource.java` (`/api/models`):
   - `GET /` — list all
   - `POST /` — create
   - `PUT /{id}` — update
   - `DELETE /{id}`
   - `POST /{id}/activate` — sets isActive=true, others false (transactional)
-- [ ] `service/ModelConfigService.java` — validation (unique name, required fields) + activate logic.
+- [x] `service/ModelConfigService.java` — validation (unique name, required fields) + activate logic.
 
-**Verify:** `mvn quarkus:dev` + curl all endpoints against H2; confirm activate flips flags.
+Notes from implementation:
+- `service/ApiException.java` — `RuntimeException` base with `int status` + `getStatus()`.
+  Subclasses: `ModelNotFoundException` (404), `ModelNameAlreadyExistsException` (409), `ValidationException` (400).
+- `rest/ApiExceptionMapper.java` — `@Provider` `ExceptionMapper<ApiException>` → `Response.status(ex.getStatus()).entity({"error": msg})`.
+- `dto/ModelConfigRequest.java` (record: name, provider, baseUrl, apiKey, modelName) + `dto/ModelConfigResponse.java` (record + `from(ModelConfig)`).
+- `ModelConfigService` — `list`/`create`/`update`/`delete`/`activate`, all `@Transactional`; `create`/`update` validate required fields (400) + unique name (409); `activate` sets target active, deactivates all others.
+- `@Consumes(APPLICATION_JSON)` on `create`/`update` only (NOT class-level) — a bodyless `POST /{id}/activate` with class-level `@Consumes` returns 415.
+- **pom:** `quarkus-rest` (RESTEasy Reactive) needs `quarkus-rest-jackson` (not standalone `quarkus-jackson`) to register the REST JSON body reader/writer — without it, POST/PUT → 415.
+
+**Verify (done):** `./mvnw test` → `ModelConfigResourceTest` (8 rest-assured tests) passes: create 201 + appears in list,
+duplicate name 409, missing field 400, update 200, update 404, delete 204, activate flips flags, activate 404.
 
 ---
 
@@ -318,7 +328,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 4 | ModelFactory | ✅ done |
 | 5 | TestRunnerService core | ✅ done |
 | 6 | Judge evaluation | ✅ done |
-| 7 | REST: Models | ⬜ not started |
+| 7 | REST: Models | ✅ done |
 | 8 | REST: Suites | ⬜ not started |
 | 9 | REST: Run + Results | ⬜ not started |
 | 10 | Seed data | ⬜ not started |

@@ -9,9 +9,14 @@
 - TestSuiteService → CRUD suite + testCases + paramSweeps (cascade)
 - TestRunnerService → runSuite / runAll (cartesian product + evaluation)
 - SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
+- ApiException → base RuntimeException con status HTTP (404/409/400) + sottoclassi *Exception
+
+## REST
+- ApiExceptionMapper → @Provider ExceptionMapper<ApiException> → JSON {"error": msg}
 
 ## DTO
 - JudgeResponse → record { score, reason } da JSON del judge (@JsonIgnoreProperties ignoreUnknown)
+- ModelConfigRequest/Response → record payload REST (Response.from(entity))
 
 ## Domain
 - ModelConfig → provider, baseUrl, modelName, isActive
