@@ -93,10 +93,115 @@ async function renderActiveModel() {
   }
 }
 
-// ---- Render helpers (filled in Steps 12–14) --------------------------------
-function renderModels() {
-  document.getElementById('tab-models').innerHTML =
-    '<div class="placeholder">Models tab — Step 12</div>';
+// ---- Models tab (Step 12) --------------------------------------------------
+async function renderModels() {
+  const panel = document.getElementById('tab-models');
+  panel.innerHTML = '<div class="placeholder">Loading models…</div>';
+  try {
+    state.models = await api('/api/models');
+  } catch (e) {
+    panel.innerHTML = '<div class="placeholder">Failed to load models.</div>';
+    return;
+  }
+  const rows = state.models.map((m) => `
+    <tr>
+      <td>${esc(m.name)}</td>
+      <td>${esc(m.provider)}</td>
+      <td>${esc(m.baseUrl)}</td>
+      <td>${esc(m.modelName)}</td>
+      <td>${m.isActive ? '<span class="badge badge-active">ACTIVE</span>' : ''}</td>
+      <td class="actions">
+        <button class="btn-sm" data-act="edit" data-id="${m.id}">Edit</button>
+        <button class="btn-sm" data-act="activate" data-id="${m.id}" ${m.isActive ? 'disabled' : ''}>Activate</button>
+        <button class="btn-sm btn-danger" data-act="delete" data-id="${m.id}">Delete</button>
+      </td>
+    </tr>`).join('');
+  panel.innerHTML = `
+    <div class="card">
+      <div class="row" style="align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0; flex:1;">Models</h3>
+        <button class="btn-primary" id="add-model">Add Model</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Provider</th><th>Base URL</th><th>Model</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody id="models-tbody">${rows}</tbody>
+      </table>
+    </div>`;
+  panel.querySelector('#add-model').addEventListener('click', () => openModelModal());
+  panel.querySelectorAll('[data-act]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.id);
+      const act = btn.dataset.act;
+      if (act === 'edit') openModelModal(state.models.find((m) => m.id === id));
+      else if (act === 'activate') activateModel(id);
+      else if (act === 'delete') deleteModel(id);
+    });
+  });
+}
+
+function openModelModal(model) {
+  const isEdit = !!model;
+  const m = model || { name: '', provider: 'OLLAMA', baseUrl: '', apiKey: '', modelName: '' };
+  const providers = ['OLLAMA', 'OPENAI_COMPATIBLE'];
+  const { modal, close } = openModal(isEdit ? 'Edit Model' : 'Add Model', `
+    <label>Name</label><input id="f-name" value="${esc(m.name)}">
+    <label>Provider</label>
+    <select id="f-provider">${providers.map((p) => `<option ${p === m.provider ? 'selected' : ''}>${p}</option>`).join('')}</select>
+    <label>Base URL</label><input id="f-baseurl" value="${esc(m.baseUrl)}">
+    <label>API Key (optional)</label><input id="f-apikey" value="${esc(m.apiKey)}">
+    <label>Model Name</label><input id="f-modelname" value="${esc(m.modelName)}">
+  `);
+  const footer = modal.querySelector('.modal-footer');
+  const save = document.createElement('button');
+  save.className = 'btn-primary';
+  save.textContent = 'Save';
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', close);
+  save.addEventListener('click', async () => {
+    const body = {
+      name: modal.querySelector('#f-name').value.trim(),
+      provider: modal.querySelector('#f-provider').value,
+      baseUrl: modal.querySelector('#f-baseurl').value.trim(),
+      apiKey: modal.querySelector('#f-apikey').value.trim() || null,
+      modelName: modal.querySelector('#f-modelname').value.trim(),
+    };
+    if (!body.name || !body.baseUrl || !body.modelName) { toast('Name, Base URL and Model are required', 'error'); return; }
+    save.disabled = true;
+    try {
+      if (isEdit) await api('/api/models/' + model.id, { method: 'PUT', body });
+      else await api('/api/models', { method: 'POST', body });
+      close();
+      toast(isEdit ? 'Model updated' : 'Model created', 'success');
+      await renderActiveModel();
+      renderModels();
+    } catch (e) { save.disabled = false; }
+  });
+  footer.append(cancel, save);
+}
+
+async function activateModel(id) {
+  try {
+    await api('/api/models/' + id + '/activate', { method: 'POST' });
+    toast('Model activated', 'success');
+    await renderActiveModel();
+    renderModels();
+  } catch (e) { /* toast already shown */ }
+}
+
+async function deleteModel(id) {
+  const m = state.models.find((x) => x.id === id);
+  if (!confirm('Delete model "' + m.name + '"?')) return;
+  try {
+    await api('/api/models/' + id, { method: 'DELETE' });
+    toast('Model deleted', 'success');
+    await renderActiveModel();
+    renderModels();
+  } catch (e) { /* toast already shown */ }
+}
+
+function esc(s) {
+  return s == null ? '' : String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function renderSuites() {

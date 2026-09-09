@@ -281,14 +281,21 @@ Notes:
 
 ---
 
-## Step 12 — Frontend: Models tab
+## Step 12 — Frontend: Models tab ✅
 **Goal:** full model CRUD in UI.
 
-- [ ] Table (Name, Provider, Base URL, Model, Active badge, Actions)
-- [ ] Add/Edit modal (name, provider select, baseUrl, apiKey, modelName)
-- [ ] Delete (confirm), Activate (radio-style) → re-fetch, update top-bar indicator.
+- [x] Table (Name, Provider, Base URL, Model, Active badge, Actions)
+- [x] Add/Edit modal (name, provider select, baseUrl, apiKey, modelName)
+- [x] Delete (confirm), Activate (radio-style) → re-fetch, update top-bar indicator.
 
-**Verify:** create/edit/delete/activate models via UI; top bar shows active model.
+**Verify:** create/edit/delete/activate models via UI; top bar shows active model. ✅
+
+Notes:
+- `renderModels()` — table (Name/Provider/Base URL/Model/Active badge/Actions) + "Add Model" button.
+- `openModelModal(model?)` — add/edit form (name, provider select OLLAMA/OPENAI_COMPATIBLE, baseUrl, apiKey optional, modelName); POST create / PUT update; re-fetch + `renderActiveModel()`.
+- `activateModel(id)` → POST `/api/models/{id}/activate`; `deleteModel(id)` → confirm + DELETE.
+- `esc()` — HTML-escape helper for all user data in templates.
+- Verified: served app.js has Models tab; API CRUD (create 201 / activate / update / delete 204) works; top bar shows active model.
 
 ---
 
@@ -360,7 +367,7 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 9 | REST: Run + Results | ✅ done |
 | 10 | Seed data | ✅ done |
 | 11 | Frontend: layout + theme | ✅ done |
-| 12 | Frontend: Models tab | ⬜ not started |
+| 12 | Frontend: Models tab | ✅ done |
 | 13 | Frontend: Suites tab | ⬜ not started |
 | 14 | Frontend: Results tab | ⬜ not started |
 | 15 | README + E2E | ⬜ not started |
