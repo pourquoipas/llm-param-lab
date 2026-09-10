@@ -11,7 +11,7 @@
 - SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
 - ApiException → base RuntimeException con status HTTP (404/409/400) + sottoclassi *Exception
 - SuiteNotFoundException → suite non trovata (→ HTTP 404)
-- ResultService → results(suiteId,testCaseId) + summary(suiteId) (best combo per test case)
+- ResultService → results(suiteId,testCaseId) + summary(suiteId) (raggruppa per seed → best combo per test case)
 - NoActiveModelException → nessun modello attivo (→ HTTP 400)
 
 ## REST
@@ -21,18 +21,18 @@
 ## DTO
 - JudgeResponse → record { score, reason } da JSON del judge (@JsonIgnoreProperties ignoreUnknown)
 - ModelConfigRequest/Response → record payload REST (Response.from(entity))
-- SuiteCreateRequest → record con nested List<TestCaseDto> + List<ParamSweepDto>
+- SuiteCreateRequest → flat fields: suite + judge (modelId/prompt/temperature/topP/seed) + List<TestCaseDto> + List<ParamSweepDto> + List<Integer> seeds
 - SuiteResponse → record suite + testCases + paramSweeps + latestRunAt
 - TestCaseDto → record { name, systemPrompt, userPrompt, sortOrder }
 - ParamSweepDto → record { paramName, values (JSON array string) }
-- RunSummaryResponse → suiteId + List<TestCaseSummary> (bestCombo + combos: paramsJson, avgScore, min/maxLatency)
+- RunSummaryResponse → suiteId + List<SeedSummary> (seed → List<TestCaseSummary>: bestCombo + combos: paramsJson, avgScore, min/maxLatency)
 
 ## Domain
 - ModelConfig → provider, baseUrl, modelName, isActive
-- TestSuite → expectedOutput, judgeModelId, judgePrompt
+- TestSuite → expectedOutput, judge (modelId/prompt/temperature/topP/seed), seeds (CLOB JSON array)
 - TestCase → systemPrompt (per-case), userPrompt, sortOrder
 - ParamSweep → paramName, values (JSON array)
-- RunResult → paramsJson, rawOutput, score, evaluationType, passed
+- RunResult → paramsJson, rawOutput, score, evaluationType, passed, seed, reasoningTokens, inputTps/outputTps
 
 ## Regola
 - ModelFactory → mai parametri nel builder, sempre a call-time

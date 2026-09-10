@@ -29,6 +29,41 @@ The top bar has two admin buttons:
   `Audit protocol`) × temperature `[0.1, 1.0]`, judged by the default model.
 - **Clean DB** — wipes the entire database (all models, suites, and results).
 
+## Interface (UI)
+
+Single page (`index.html` + `app.js`, no build step) with four tabs:
+- **Models** — CRUD for `ModelConfig`; one model is flagged *active* (the one that runs and
+  judges by default). "Activate" sets the active model.
+- **Suites** — list + create/edit. Editor fields: name/description, expected-output mode and
+  value, judge model/prompt/temperature/topP/seed, a **Seed Sweep** field (comma-separated
+  ints), a test-case list (name/system/user prompts), and a param-sweep list
+  (param name + JSON-array values). **Save** persists and closes; **X/Cancel** discard.
+- **Results** — pick a suite (and optionally one test case). Top: "Best param combo (per seed)"
+  summary card (one block per seed, best combo + avg score per test case). Below: a results
+  table — Test Case, Params, Seed, Score, Passed, Latency, Tokens In/Out, Thinking,
+  In/Out t/s, Eval Type, Date. Click a row to expand raw output + score reason.
+  "Run Suite" / "Run All" trigger runs.
+- **top bar** — **＋ Test case** (insert the ready-to-run `code reviewer` suite) and
+  **Clean DB** (wipe everything).
+
+## Patterns
+- **New chat per task** — every LLM call (model under test *and* judge) is a stateless
+  single-turn `chat()` from a fresh message list; no `ChatMemory`, so no cross-task memory.
+- **Provider-aware parameters** — one `buildChatParams`/`applyCommon` builds
+  `ChatRequestParameters` per provider (OpenAI-compatible vs Ollama); nulls are omitted so the
+  model's own defaults apply; `seed` is set on both providers; `reasoningEffort` is
+  OpenAI-compatible-only.
+- **Resilient run** — each combo is isolated: a failure (e.g. timeout) is recorded as an
+  `ERROR` result and the run continues with the remaining combos.
+- **Seed sweep** — runs are the Cartesian product of seeds × test cases × param combos; the
+  summary groups and compares at parity of seed.
+- **Idempotent seeding** — on first start, the default model + example suite are created only
+  when the tables are empty (never duplicated on restart).
+- **Schema versioning** — all DB changes are additive Liquibase changeSets (one new file per
+  change, never edit an existing one); data is preserved.
+- **Offline test suite** — tests fake the `ChatModel` (a subclass) and inject an in-memory
+  repository stub; nothing talks to a real LLM or network.
+
 ## Configuration (.env)
 
 The default LLM is configured in a gitignored `.env` file in the project root
@@ -138,7 +173,17 @@ Base path: `http://localhost:8080`
 |--------|------|-------------|
 | POST | `/api/run-all` | Run every suite, returns all results |
 | GET | `/api/results?suiteId={id}&testCaseId={id}` | Filtered results |
-| GET | `/api/results/summary?suiteId={id}` | Per-suite summary (best param combo per test case) |
+| GET | `/api/results/summary?suiteId={id}` | Per-suite summary (grouped by seed) |
+
+**Results** (`GET /api/results`) returns `RunResult` objects: `id`, `suiteId`, `testCaseId`,
+`seed`, `modelConfigId`, `paramsJson`, `rawOutput`, `latencyMs`, `tokensIn`, `tokensOut`,
+`reasoningTokens`, `inputTps`, `outputTps`, `score`, `scoreReason`, `evaluationType`,
+`passed` (`null` when `SKIPPED`), `createdAt`.
+
+**Summary** (`GET /api/results/summary`) shape — `RunSummaryResponse`:
+- `suiteId`, `seeds[]` → `SeedSummary{ seed, testCases[] }` (one per seed, nulls last)
+- `testCases[]` → `TestCaseSummary{ testCaseId, testCaseName, bestCombo, combos[] }`
+- `combos[]` → `ComboSummary{ paramsJson, avgScore, minLatencyMs, maxLatencyMs, runCount }`
 
 ### Admin
 
@@ -168,29 +213,41 @@ curl -X POST http://localhost:8080/api/suites \
   -d '{
     "name": "Code review sweep",
     "description": "Same user prompt, different system prompts and parameters.",
-    "modelId": 1,
+    "expectedOutput": null,
+    "expectedOutputMode": "JUDGE",
+    "judgeModelId": null,
     "judgePrompt": null,
-    "judgeParams": { "temperature": {} },
+    "judgeTemperature": 0.0,
+    "judgeTopP": null,
+    "judgeSeed": null,
     "seeds": [42, 7],
-    "cases": [
+    "testCases": [
       {
+        "name": "audit",
         "systemPrompt": "You are a meticulous code auditor.",
         "userPrompt": "Review this Java code ...",
-        "expectedOutput": null,
-        "sweeps": { "temperature": [0.1, 1.0] }
+        "sortOrder": 0
       }
+    ],
+    "paramSweeps": [
+      { "paramName": "temperature", "values": "[0.1, 1.0]" }
     ]
   }'
 ```
 
-Field reference (current `SuiteCreateRequest` / `SuiteResponse`):
-- `name`, `description`, `modelId`, `judgePrompt`
-- `judgeParams` — per-param value maps for the judge, e.g. `{"temperature": {}}`
-- `seeds` — optional list of integer seeds (seed sweep); empty → one generated seed
-- `cases[]` — `systemPrompt`, `userPrompt`, `expectedOutput` (string; empty → judged),
-  `sweeps` — param → list of double values. Sweepable params: `temperature`, `topP`, `topK`,
-  `frequencyPenalty`, `presencePenalty`, `maxTokens`
-- `seed` is not swept per case; it is the suite-level `seeds` list
+Field reference (create = `SuiteCreateRequest`, read = `SuiteResponse`):
+- `name`, `description`
+- `expectedOutput` (string) + `expectedOutputMode` — `NONE` | `EXACT` | `CONTAINS` | `JUDGE`.
+  `JUDGE` → evaluated by the judge LLM (uses `judgePrompt` + judge params); `NONE` → `SKIPPED`
+  (no score); `EXACT`/`CONTAINS` → compared against `expectedOutput`.
+- `judgeModelId` — null → use the active model as judge; `judgePrompt`; `judgeTemperature`
+  (null → 0.0), `judgeTopP`, `judgeSeed` (null → judge uses model default)
+- `seeds` — optional list of integer seeds (seed sweep); empty/omitted → one generated seed
+- `testCases[]` — `name`, `systemPrompt`, `userPrompt`, `sortOrder` (`id` is read-only)
+- `paramSweeps[]` — `paramName` + `values` (JSON array string). Sweepable `paramName`:
+  `temperature`, `topP`, `topK`, `frequencyPenalty`, `presencePenalty`, `maxTokens`
+- `seed` is not swept per test case; it is the suite-level `seeds` list. Read response also
+  returns `id`, `createdAt`, `updatedAt`, `latestRunAt`.
 
 ## License
 
