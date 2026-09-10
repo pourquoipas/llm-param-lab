@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-add-token-stats
+      author: llm-param-lab
+      changes:
+        - addColumn:
+            tableName: run_result
+            columns:
+              - column:
+                  name: reasoning_tokens
+                  type: INTEGER
+              - column:
+                  name: input_tps
+                  type: DOUBLE
+              - column:
+                  name: output_tps
+                  type: DOUBLE

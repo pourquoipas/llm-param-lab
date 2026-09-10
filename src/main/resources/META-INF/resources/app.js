@@ -509,6 +509,10 @@ function formatParams(paramsJson) {
   } catch (e) { return paramsJson; }
 }
 
+function fmtTps(v) {
+  return v != null ? Math.round(v * 10) / 10 : '—';
+}
+
 async function renderResults() {
   const panel = document.getElementById('tab-results');
   panel.innerHTML = '<div class="placeholder">Loading results…</div>';
@@ -568,7 +572,7 @@ async function renderResults() {
     <div class="card" id="res-summary"></div>
     <div class="card">
       <table>
-        <thead><tr><th>Test Case</th><th>Params</th><th>Seed</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Eval Type</th><th>Date</th></tr></thead>
+        <thead><tr><th>Test Case</th><th>Params</th><th>Seed</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Thinking</th><th>In/Out t/s</th><th>Eval Type</th><th>Date</th></tr></thead>
         <tbody id="res-tbody"></tbody>
       </table>
     </div>`;
@@ -621,7 +625,7 @@ function renderResultsTable(tcName) {
     results = results.filter((r) => r.testCaseId === state.resultsTestCaseId);
   }
   if (!results.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
     return;
   }
   tbody.innerHTML = results.map((r) => {
@@ -636,11 +640,13 @@ function renderResultsTable(tcName) {
         <td>${r.passed ? '✓' : '✗'}</td>
         <td>${r.latencyMs != null ? r.latencyMs + ' ms' : '—'}</td>
         <td>${r.tokensIn != null ? r.tokensIn : '—'} / ${r.tokensOut != null ? r.tokensOut : '—'}</td>
+        <td>${r.reasoningTokens != null ? r.reasoningTokens : '—'}</td>
+        <td>${fmtTps(r.inputTps)} / ${fmtTps(r.outputTps)}</td>
         <td>${esc(r.evaluationType)}</td>
         <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
       </tr>
       <tr class="res-detail" data-detail-for="${r.id}" style="display:none;">
-        <td colspan="8">
+        <td colspan="11">
           <label>Raw Output</label>
           <pre>${esc(r.rawOutput || '(empty)')}</pre>
           <label>Score Reason</label>

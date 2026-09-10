@@ -28,6 +28,7 @@ import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.ollama.OllamaChatRequestParameters;
 import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
+import dev.langchain4j.model.openai.OpenAiTokenUsage;
 import dev.langchain4j.model.output.TokenUsage;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -183,14 +184,34 @@ public class TestRunnerService {
         result.setRawOutput(rawOutput);
         result.setLatencyMs(latencyMs);
         if (usage != null) {
-            result.setTokensIn(usage.inputTokenCount());
-            result.setTokensOut(usage.outputTokenCount());
+            Integer in = usage.inputTokenCount();
+            Integer out = usage.outputTokenCount();
+            result.setTokensIn(in);
+            result.setTokensOut(out);
+            // Thinking/reasoning tokens are only reported by the OpenAI-compatible backend
+            // (Ollama returns the base TokenUsage); null otherwise.
+            if (usage instanceof OpenAiTokenUsage oai) {
+                var details = oai.outputTokensDetails();
+                if (details != null) {
+                    result.setReasoningTokens(details.reasoningTokens());
+                }
+            }
+            result.setInputTps(throughput(in, latencyMs));
+            result.setOutputTps(throughput(out, latencyMs));
         }
         result.setScore(score);
         result.setScoreReason(scoreReason);
         result.setEvaluationType(evaluationType);
         result.setPassed(passed);
         return runResultRepository.save(result);
+    }
+
+    /** Tokens/second over the total call latency (null when tokens or latency are unknown). */
+    static Double throughput(Integer tokens, long latencyMs) {
+        if (tokens == null || latencyMs <= 0) {
+            return null;
+        }
+        return tokens / (latencyMs / 1000.0);
     }
 
     /** Compact, non-null message for a failed combo (e.g. {@code TimeoutException: request timed out}). */

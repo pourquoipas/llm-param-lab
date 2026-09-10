@@ -7,6 +7,8 @@ databaseChangeLog:
       file: db/changelog/changes/003-judge-params.yaml
   - include:
       file: db/changelog/changes/004-seeds.yaml
+  - include:
+      file: db/changelog/changes/005-token-stats.yaml
   # Future changes go here, one file per change:
   # - include:
   #     file: db/changelog/changes/003-add-field-x.yaml

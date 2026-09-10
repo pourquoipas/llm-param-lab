@@ -77,6 +77,18 @@ of full runs). An empty list → one seed is generated and applied to every run.
 The seed is passed to the model (Ollama `seed` / OpenAI-compatible `seed`). UI: "Seed Sweep"
 field in the suite editor; one summary block per seed.
 
+**Token / throughput stats (per run):** every `RunResult` records `tokensIn` / `tokensOut`
+(from `TokenUsage`), plus two derived stats:
+- `reasoningTokens` — "thinking" tokens. Only reported by the OpenAI-compatible backend
+  (`OpenAiTokenUsage.outputTokensDetails().reasoningTokens()`); `null` for Ollama.
+- `inputTps` / `outputTps` — tokens/second = token count ÷ total call latency (ms). `null`
+  when the token count or latency is unknown (e.g. an errored run).
+
+**Limitation (documented):** langchain4j 1.0.1 does **not** expose the *time* spent thinking
+vs. generating — only token counts and the total call latency. So "thinking time" is not
+measured; `reasoningTokens` is the closest available signal (and only on OpenAI-compatible).
+UI: the results table shows Thinking tokens and In/Out t/s columns.
+
 ## Schema versioning
 
 All database changes go through Liquibase changelogs in `db/changelog/changes/`.
