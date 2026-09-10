@@ -24,3 +24,6 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local prompt/scratch doc (never committed)
+prompt.txt
