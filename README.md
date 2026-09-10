@@ -70,6 +70,13 @@ seed sweep (see above). `reasoningEffort` is OpenAI-compatible-only and not expo
 UI. If a param is not swept, the model's own default is used (no token cap is injected
 unless `maxTokens` is swept).
 
+**Raw-JSON injection (NOT supported):** langchain4j 1.0.1 serializes
+`ChatRequestParameters` to a fixed schema — there is no hook to inject arbitrary JSON
+(e.g. `"reasoning": {"effort": "low"}`) into the chat request. The typed
+`reasoningEffort(String)` field (OpenAI-compatible) *is* available and covers the
+`reasoning.effort` case. Any other non-typed request field is not reachable through
+langchain4j.
+
 **Seed sweep (per-seed runs + comparison):** a suite carries an optional comma-separated
 list of integer seeds. All cases × combos are re-run once per seed (number of seeds = number
 of full runs). An empty list → one seed is generated and applied to every run. Every
