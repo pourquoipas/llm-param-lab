@@ -4,6 +4,7 @@ import dev.gnius.llmlab.domain.RunResult;
 import dev.gnius.llmlab.domain.TestCase;
 import dev.gnius.llmlab.domain.TestSuite;
 import dev.gnius.llmlab.dto.RunSummaryResponse;
+import dev.gnius.llmlab.report.PdfReport;
 import dev.gnius.llmlab.report.ReportData;
 import dev.gnius.llmlab.report.XlsxReport;
 import dev.gnius.llmlab.repository.TestCaseRepository;
@@ -48,6 +49,10 @@ public class ReportService {
 
     public byte[] xlsx(Long suiteId) {
         return XlsxReport.generate(buildReport(suiteId));
+    }
+
+    public byte[] pdf(Long suiteId) {
+        return PdfReport.generate(buildReport(suiteId));
     }
 
     /** Assembles the report payload for a suite: suite name + all its results + best-combo summary. */

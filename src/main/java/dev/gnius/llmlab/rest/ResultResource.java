@@ -94,6 +94,19 @@ public class ResultResource {
                 reportService.xlsx(suiteId));
     }
 
+    @GET
+    @Path("/results/export/pdf")
+    public Response exportPdf(@QueryParam("suiteId") Long suiteId) {
+        if (suiteId == null) {
+            return Response.status(400).entity("suiteId is required").build();
+        }
+        if (!reportService.suiteExists(suiteId)) {
+            return Response.status(404).entity("suite not found").build();
+        }
+        String filename = "report-" + safeName(reportService.suiteName(suiteId)) + ".pdf";
+        return attachment(filename, "application/pdf", reportService.pdf(suiteId));
+    }
+
     private static Response attachment(String filename, String contentType, byte[] body) {
         return Response.ok(body, contentType)
                 .header("Content-Disposition", "attachment; filename=" + filename)

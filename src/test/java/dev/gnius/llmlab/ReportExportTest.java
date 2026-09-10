@@ -28,6 +28,7 @@ import static io.restassured.RestAssured.given;
 class ReportExportTest {
 
     static final String XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    static final String PDF_MIME = "application/pdf";
 
     static final AtomicInteger SEQ = new AtomicInteger();
 
@@ -126,6 +127,39 @@ class ReportExportTest {
     void xlsxExportUnknownSuiteReturns404() {
         given().queryParam("suiteId", 999999)
                 .when().get("/api/results/export/xlsx")
+                .then().statusCode(404);
+    }
+
+    @Test
+    void pdfExportReturnsValidDocument() {
+        Long id = create(validBody(uniqueName()));
+        try {
+            Long tc = firstTestCaseId(id);
+            seedResult(id, tc, 1, 0.9);
+            seedResult(id, tc, 2, 0.5);
+
+            Response response = given().queryParam("suiteId", id)
+                    .when().get("/api/results/export/pdf");
+            response.then().statusCode(200).contentType(PDF_MIME);
+
+            byte[] bytes = response.getBody().asByteArray();
+            // PDF files start with the '%PDF-' magic header
+            Assertions.assertTrue(bytes.length > 5 && new String(bytes, 0, 5).equals("%PDF-"),
+                    "body should start with %PDF-");
+        } finally {
+            delete(id);
+        }
+    }
+
+    @Test
+    void pdfExportMissingSuiteIdReturns400() {
+        given().when().get("/api/results/export/pdf").then().statusCode(400);
+    }
+
+    @Test
+    void pdfExportUnknownSuiteReturns404() {
+        given().queryParam("suiteId", 999999)
+                .when().get("/api/results/export/pdf")
                 .then().statusCode(404);
     }
 }
