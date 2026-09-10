@@ -43,5 +43,5 @@
 - Error handling → ApiExceptionMapper (ApiException → JSON status) + GenericExceptionMapper (last-resort: WebApplicationException keeps status, else JSON 500)
 - Seed data → seed/SeedData.java @ApplicationScoped, @Transactional onStartup(@Observes StartupEvent); idempotente (solo se tabella vuota via findAll().isEmpty())
 - DTO con id read-only → record *Dto con Long id come primo componente (popolato solo in toResponse, ignorato in create/update che usano accessors)
-- Admin ops → AdminService: clean() wipe in FK order (run_result→test_case→param_sweep→test_suite→model_config); insertTestCase() ensureDefaultModel+activate + create/replace "Agent smoke test" (3 challenging cases: trap/arithmetic/format × temp [0.5,0.8], judge=default)
+- Admin ops → AdminService: clean() wipe in FK order (run_result→test_case→param_sweep→test_suite→model_config); insertTestCase() ensureDefaultModel+activate + create/replace "code reviewer" (shared code-review user prompt × 2 system personas system-thinker/Audit-protocol × temp [0.1,1.0], judge=default)
 - Test "no active model" → ModelConfigService.deactivateAll() prima (400 senza chiamare LLM), restore ensureDefaultModel() in finally (mai dipendere da LLM reale up/busy)

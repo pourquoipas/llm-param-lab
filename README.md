@@ -24,8 +24,9 @@ one example suite (`JSON extraction test`). Seeding is idempotent — it only ru
 when the tables are empty, so restarts never duplicate data.
 
 The top bar has two admin buttons:
-- **＋ Test case** — inserts a challenging live suite (`Agent smoke test`: 3 test cases
-  — a logic trap, a multi-step arithmetic, and a strict-JSON format — × temperature `[0.5, 0.8]`, judged by the default model).
+- **＋ Test case** — inserts the `code reviewer` live suite: one shared code-review user prompt
+  (a non-thread-safe `SimpleCache` under 10k req/s) × 2 system personas (`system thinker`,
+  `Audit protocol`) × temperature `[0.1, 1.0]`, judged by the default model.
 - **Clean DB** — wipes the entire database (all models, suites, and results).
 
 ## Configuration (.env)
@@ -99,7 +100,7 @@ Base path: `http://localhost:8080`
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/admin/clean` | Wipe the entire database (204) |
-| POST | `/api/admin/test-case` | Insert the `Agent smoke test` suite (201) |
+| POST | `/api/admin/test-case` | Insert the `code reviewer` suite (201) |
 
 ### Example: create a model
 

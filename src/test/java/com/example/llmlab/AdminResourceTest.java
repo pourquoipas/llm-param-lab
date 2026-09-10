@@ -46,18 +46,20 @@ class AdminResourceTest {
 
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
-                .body("name", equalTo("Agent smoke test"))
+                .body("name", equalTo("code reviewer"))
                 .body("judgeModelId", equalTo(defaultModelId))
-                .body("testCases.size()", equalTo(3))
+                .body("testCases.size()", equalTo(2))
+                .body("testCases[0].name", equalTo("system thinker"))
+                .body("testCases[1].name", equalTo("Audit protocol"))
                 .body("paramSweeps.size()", equalTo(1))
                 .body("paramSweeps[0].paramName", equalTo("temperature"))
-                .body("paramSweeps[0].values", equalTo("[0.5, 0.8]"));
+                .body("paramSweeps[0].values", equalTo("[0.1, 1.0]"));
 
         // Idempotent: re-running replaces children instead of duplicating them.
         given().when().post("/api/admin/test-case").then().statusCode(201);
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
-                .body("testCases.size()", equalTo(3));
+                .body("testCases.size()", equalTo(2));
     }
 
     /** True if the "default" model is currently the active one. */
