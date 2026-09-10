@@ -3,6 +3,7 @@ package dev.gnius.llmlab.rest;
 import dev.gnius.llmlab.domain.RunResult;
 import dev.gnius.llmlab.dto.ResultDeleteRequest;
 import dev.gnius.llmlab.dto.RunSummaryResponse;
+import dev.gnius.llmlab.service.ReportService;
 import dev.gnius.llmlab.service.ResultService;
 import dev.gnius.llmlab.service.TestRunnerService;
 import jakarta.annotation.security.PermitAll;
@@ -44,11 +45,14 @@ public class ResultResource {
 
     private final TestRunnerService runner;
     private final ResultService resultService;
+    private final ReportService reportService;
 
     @Inject
-    public ResultResource(TestRunnerService runner, ResultService resultService) {
+    public ResultResource(TestRunnerService runner, ResultService resultService,
+                          ReportService reportService) {
         this.runner = runner;
         this.resultService = resultService;
+        this.reportService = reportService;
     }
 
     /** Runs every suite and returns all results. */
@@ -72,6 +76,32 @@ public class ResultResource {
     @Path("/results/summary")
     public RunSummaryResponse summary(@QueryParam("suiteId") Long suiteId) {
         return resultService.summary(suiteId);
+    }
+
+    /** Downloads the current suite's report as .xlsx. */
+    @GET
+    @Path("/results/export/xlsx")
+    public Response exportXlsx(@QueryParam("suiteId") Long suiteId) {
+        if (suiteId == null) {
+            return Response.status(400).entity("suiteId is required").build();
+        }
+        if (!reportService.suiteExists(suiteId)) {
+            return Response.status(404).entity("suite not found").build();
+        }
+        String filename = "report-" + safeName(reportService.suiteName(suiteId)) + ".xlsx";
+        return attachment(filename,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                reportService.xlsx(suiteId));
+    }
+
+    private static Response attachment(String filename, String contentType, byte[] body) {
+        return Response.ok(body, contentType)
+                .header("Content-Disposition", "attachment; filename=" + filename)
+                .build();
+    }
+
+    private static String safeName(String name) {
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     /** Deletes a single result. Returns 204. */
