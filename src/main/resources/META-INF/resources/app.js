@@ -571,8 +571,14 @@ async function renderResults() {
     </div>
     <div class="card" id="res-summary"></div>
     <div class="card">
+      <div class="row" style="align-items:center; margin-bottom:8px;">
+        <label style="font-size:13px;"><input type="checkbox" id="res-select-all" /> Select all</label>
+        <button class="btn-sm btn-danger" id="btn-del-selected">Delete selected</button>
+        <button class="btn-sm btn-danger" id="btn-del-suite" style="margin-left:8px;">Delete suite results</button>
+        <button class="btn-sm btn-danger" id="btn-del-all" style="margin-left:8px;">Delete all results</button>
+      </div>
       <table>
-        <thead><tr><th>Test Case</th><th>Params</th><th>Seed</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Thinking</th><th>In/Out t/s</th><th>Eval Type</th><th>Date</th></tr></thead>
+        <thead><tr><th></th><th>Test Case</th><th>Params</th><th>Seed</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Thinking</th><th>In/Out t/s</th><th>Eval Type</th><th>Date</th><th></th></tr></thead>
         <tbody id="res-tbody"></tbody>
       </table>
     </div>`;
@@ -587,6 +593,17 @@ async function renderResults() {
     renderResultsTable(tcName);
   });
   panel.querySelector('#run-all').addEventListener('click', runAll);
+  panel.querySelector('#res-tbody').addEventListener('change', (e) => {
+    if (e.target.classList && e.target.classList.contains('res-chk')) updateDeleteSelectedCount();
+  });
+  panel.querySelector('#res-select-all').addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('#res-tbody input[type=checkbox]').forEach((c) => { c.checked = checked; });
+    updateDeleteSelectedCount();
+  });
+  panel.querySelector('#btn-del-selected').addEventListener('click', deleteSelectedResults);
+  panel.querySelector('#btn-del-suite').addEventListener('click', deleteSuiteResults);
+  panel.querySelector('#btn-del-all').addEventListener('click', deleteAllResults);
 
   renderSummaryCard();
   renderResultsTable(tcName);
@@ -625,7 +642,8 @@ function renderResultsTable(tcName) {
     results = results.filter((r) => r.testCaseId === state.resultsTestCaseId);
   }
   if (!results.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
+    updateDeleteSelectedCount();
     return;
   }
   tbody.innerHTML = results.map((r) => {
@@ -633,6 +651,7 @@ function renderResultsTable(tcName) {
     const scoreText = r.score == null ? '—' : r.score.toFixed(2);
     return `
       <tr class="clickable" data-id="${r.id}">
+        <td><input type="checkbox" class="res-chk" value="${r.id}" /></td>
         <td>${esc(tcName(r.testCaseId))}</td>
         <td>${esc(formatParams(r.paramsJson))}</td>
         <td>${r.seed != null ? r.seed : '—'}</td>
@@ -644,9 +663,10 @@ function renderResultsTable(tcName) {
         <td>${fmtTps(r.inputTps)} / ${fmtTps(r.outputTps)}</td>
         <td>${esc(r.evaluationType)}</td>
         <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
+        <td><button class="btn-sm btn-danger res-del" data-del="${r.id}">✕</button></td>
       </tr>
       <tr class="res-detail" data-detail-for="${r.id}" style="display:none;">
-        <td colspan="11">
+        <td colspan="13">
           <label>Raw Output</label>
           <pre>${esc(r.rawOutput || '(empty)')}</pre>
           <label>Score Reason</label>
@@ -655,12 +675,78 @@ function renderResultsTable(tcName) {
       </tr>`;
   }).join('');
 
+  tbody.querySelectorAll('.res-del').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteResultById(Number(b.dataset.del));
+    });
+  });
   tbody.querySelectorAll('tr.clickable').forEach((tr) => {
-    tr.addEventListener('click', () => {
+    tr.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
       const detail = tbody.querySelector(`tr[data-detail-for="${tr.dataset.id}"]`);
       if (detail) detail.style.display = detail.style.display === 'none' ? '' : 'none';
     });
   });
+  updateDeleteSelectedCount();
+}
+
+function updateDeleteSelectedCount() {
+  const boxes = document.querySelectorAll('#res-tbody input[type=checkbox]');
+  const checked = document.querySelectorAll('#res-tbody input[type=checkbox]:checked').length;
+  const btn = document.getElementById('btn-del-selected');
+  if (btn) btn.textContent = checked ? 'Delete selected (' + checked + ')' : 'Delete selected';
+  const selAll = document.getElementById('res-select-all');
+  if (selAll) selAll.checked = boxes.length > 0 && checked === boxes.length;
+}
+
+// ---- R3: result deletion actions ------------------------------------------
+async function deleteResultById(id) {
+  if (!confirm('Delete this result?')) return;
+  showSpinner();
+  try {
+    await api('/api/results/' + id, { method: 'DELETE' });
+    toast('Result deleted', 'success');
+    await renderResults();
+  } catch (e) { /* toast already shown */ }
+  finally { hideSpinner(); }
+}
+
+async function deleteSelectedResults() {
+  const ids = Array.from(document.querySelectorAll('#res-tbody input[type=checkbox]:checked'))
+    .map((c) => Number(c.value));
+  if (!ids.length) { toast('No results selected', 'info'); return; }
+  if (!confirm('Delete ' + ids.length + ' selected result(s)?')) return;
+  showSpinner();
+  try {
+    await api('/api/results/delete', { method: 'POST', body: { ids } });
+    toast('Deleted ' + ids.length + ' result(s)', 'success');
+    await renderResults();
+  } catch (e) { /* toast already shown */ }
+  finally { hideSpinner(); }
+}
+
+async function deleteSuiteResults() {
+  const suite = state.suites.find((s) => s.id === state.resultsSuiteId);
+  if (!confirm('Delete ALL results of suite "' + (suite ? suite.name : state.resultsSuiteId) + '"?')) return;
+  showSpinner();
+  try {
+    await api('/api/results?suiteId=' + state.resultsSuiteId, { method: 'DELETE' });
+    toast('Suite results deleted', 'success');
+    await renderResults();
+  } catch (e) { /* toast already shown */ }
+  finally { hideSpinner(); }
+}
+
+async function deleteAllResults() {
+  if (!confirm('Delete ALL results across every suite? This cannot be undone.')) return;
+  showSpinner();
+  try {
+    await api('/api/results/all', { method: 'DELETE' });
+    toast('All results deleted', 'success');
+    await renderResults();
+  } catch (e) { /* toast already shown */ }
+  finally { hideSpinner(); }
 }
 
 async function runAll() {
