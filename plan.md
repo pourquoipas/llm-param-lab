@@ -470,7 +470,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | # | Step | Status |
 |---|------|--------|
 | R1 | Result deletion: repository + service (id / ids / suite / suite+case / all) | ✅ done |
-| R2 | REST delete endpoints (single, set, suite, all) | ⬜ todo |
+| R2 | REST delete endpoints (single, set, suite, all) | ✅ done |
 | R3 | UI: delete buttons (per-row, selected, suite, all) | ⬜ todo |
 | R4 | Excel (.xlsx) export of current suite (Apache POI) | ⬜ todo |
 | R5 | PDF export of current suite (OpenPDF) | ⬜ todo |

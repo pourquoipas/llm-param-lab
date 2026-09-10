@@ -157,4 +157,110 @@ class ResultResourceTest {
             delete(id);
         }
     }
+
+    // ---- R2: result deletion endpoints ----
+
+    private static Long firstTestCaseId(Long suiteId) {
+        return given().when().get("/api/suites/" + suiteId)
+                .then().statusCode(200)
+                .extract().jsonPath().getLong("testCases[0].id");
+    }
+
+    private Long seedResult(Long suiteId, Long testCaseId) {
+        RunResult r = new RunResult();
+        r.setSuiteId(suiteId);
+        r.setTestCaseId(testCaseId);
+        r.setParamsJson("{}");
+        r.setRawOutput("out");
+        r.setLatencyMs(1L);
+        r.setTokensIn(1);
+        r.setTokensOut(1);
+        r.setScore(1.0);
+        r.setScoreReason("ok");
+        r.setEvaluationType(EvaluationType.EXACT_MATCH);
+        r.setPassed(true);
+        return resultRepo.save(r).getId();
+    }
+
+    private static int countResults(Long suiteId) {
+        return given().queryParam("suiteId", suiteId)
+                .when().get("/api/results")
+                .then().statusCode(200)
+                .extract().jsonPath().getList("").size();
+    }
+
+    @Test
+    void deleteResultByIdReturns204AndRemovesRow() {
+        Long id = create(validBody(uniqueName()));
+        try {
+            Long row = seedResult(id, firstTestCaseId(id));
+            given().when().delete("/api/results/" + row).then().statusCode(204);
+            org.junit.jupiter.api.Assertions.assertFalse(
+                    resultRepo.findById(row).isPresent(), "row should be deleted");
+            org.junit.jupiter.api.Assertions.assertEquals(0, countResults(id));
+        } finally {
+            delete(id);
+        }
+    }
+
+    @Test
+    void deleteResultsByIdsReturns204AndRemovesOnlyGiven() {
+        Long id = create(validBody(uniqueName()));
+        try {
+            Long tc = firstTestCaseId(id);
+            Long a = seedResult(id, tc);
+            Long b = seedResult(id, tc);
+            given().contentType(ContentType.JSON)
+                    .body(Map.of("ids", List.of(a)))
+                    .when().post("/api/results/delete")
+                    .then().statusCode(204);
+            org.junit.jupiter.api.Assertions.assertFalse(resultRepo.findById(a).isPresent());
+            org.junit.jupiter.api.Assertions.assertTrue(resultRepo.findById(b).isPresent());
+            org.junit.jupiter.api.Assertions.assertEquals(1, countResults(id));
+        } finally {
+            delete(id);
+        }
+    }
+
+    @Test
+    void deleteResultsByIdsEmptyReturns400() {
+        given().contentType(ContentType.JSON)
+                .body(Map.of("ids", List.of()))
+                .when().post("/api/results/delete")
+                .then().statusCode(400);
+    }
+
+    @Test
+    void deleteResultsBySuiteReturns204AndRemovesSuiteRows() {
+        Long id = create(validBody(uniqueName()));
+        try {
+            Long tc = firstTestCaseId(id);
+            seedResult(id, tc);
+            seedResult(id, tc);
+            given().queryParam("suiteId", id)
+                    .when().delete("/api/results")
+                    .then().statusCode(204);
+            org.junit.jupiter.api.Assertions.assertEquals(0, countResults(id));
+        } finally {
+            delete(id);
+        }
+    }
+
+    @Test
+    void deleteResultsBySuiteWithoutIdReturns400() {
+        given().when().delete("/api/results").then().statusCode(400);
+    }
+
+    @Test
+    void deleteAllResultsReturns204AndRemovesEverything() {
+        Long id = create(validBody(uniqueName()));
+        try {
+            Long tc = firstTestCaseId(id);
+            seedResult(id, tc);
+            given().when().delete("/api/results/all").then().statusCode(204);
+            org.junit.jupiter.api.Assertions.assertEquals(0, countResults(id));
+        } finally {
+            delete(id);
+        }
+    }
 }
