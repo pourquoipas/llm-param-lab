@@ -463,6 +463,55 @@ Batch of requested improvements. One atomic commit each. Newest first.
 - **How:** `TestSuiteService.VALID_PARAMS` extended; `TestRunnerService.buildParameters` maps them via the generic `ChatRequestParameters` builder (works for OpenAI + Ollama); UI param field is now a dropdown. `seed`/`reasoningEffort` are provider-specific → handled in I4.
 - **Verify:** `TestRunnerServiceParamsTest` (mapping), `TestSuiteResourceTest.createWithExtendedChatParamsSucceeds` (validation accepts new names).
 
+## Results cleanup + export
+
+Batch: fine-grained result deletion (single / set / suite / all) + results report export (Excel + PDF, current suite). One atomic commit each. Each step keeps the full offline suite green.
+
+| # | Step | Status |
+|---|------|--------|
+| R1 | Result deletion: repository + service (id / ids / suite / suite+case / all) | ✅ done |
+| R2 | REST delete endpoints (single, set, suite, all) | ⬜ todo |
+| R3 | UI: delete buttons (per-row, selected, suite, all) | ⬜ todo |
+| R4 | Excel (.xlsx) export of current suite (Apache POI) | ⬜ todo |
+| R5 | PDF export of current suite (OpenPDF) | ⬜ todo |
+| R6 | UI: Export Excel / Export PDF buttons (current suite) | ⬜ todo |
+| R7 | Tests + README + docs | ⬜ todo |
+
+### R1 — Result deletion: repository + service
+- **What:** delete results by single id, by a set of ids, by suite, by suite+test case, or all.
+- **How:** `RunResultRepository` +`deleteBySuiteId`, `deleteBySuiteIdAndTestCase`, `deleteByIds(List<Long>)` (native `DELETE ... WHERE id IN (:ids)`); `delete(id)`/`deleteAll()` already exist. `ResultService` + thin `deleteById`, `deleteByIds`, `deleteBySuite(suiteId, testCaseId)`, `deleteAllResults()` delegating to the repo (javadoc: "read + delete").
+- **Verify:** `ResultDeletionTest` (@QuarkusTest, in-memory H2) — seed real suite/case rows, each delete granularity removes exactly the intended rows (6 tests green).
+
+### R2 — REST delete endpoints
+- **What:** expose the four granularities.
+- **How:** `ResultResource`: `DELETE /api/results/{id}` (single); `POST /api/results/delete` body `{ids:[…]}` (set → 400 if empty); `DELETE /api/results?suiteId=[&testCaseId=]` (suite, 400 if no suiteId); `DELETE /api/results/all` (all). All return 204. New `dto/ResultDeleteRequest`.
+- **Verify:** `ResultResourceTest` — create suite + rows, each endpoint 204 and removes the right rows; 400 cases for empty/missing ids.
+
+### R3 — UI: delete buttons
+- **What:** delete a single result, a set, all of a suite, or all.
+- **How:** `app.js` Results table: per-row **Delete**; per-row **checkbox** + **Delete selected**; header buttons **Delete suite** + **Delete all results**. `confirm()` before each; refetch on success.
+- **Verify:** `node --check` OK; button → endpoint wiring reviewed.
+
+### R4 — Excel (.xlsx) export (current suite)
+- **What:** download the current suite's report as `.xlsx`.
+- **How:** pom +`org.apache.poi:poi-ooxml`. `GET /api/results/export/xlsx?suiteId=` → `Content-Type` xlsx + `Content-Disposition: attachment; filename=report-<suite>.xlsx`. Workbook = summary sheet (best combo per seed) + results sheet (full table). Shared `ReportData` assembler from `summary()`+`results()`.
+- **Verify:** offline test — 200, correct content-type, body starts with `PK`, load back with POI (sheet count ≥ 1).
+
+### R5 — PDF export (current suite)
+- **What:** download the current suite's report as `.pdf`.
+- **How:** pom +`com.github.librepdf:openpdf`. `GET /api/results/export/pdf?suiteId=` → `application/pdf` + `filename=report-<suite>.pdf`. Reuses `ReportData`.
+- **Verify:** offline test — 200, content-type pdf, body starts with `%PDF`, size > header.
+
+### R6 — UI: export buttons
+- **What:** Export Excel / Export PDF for the current suite.
+- **How:** `app.js` header buttons → `downloadBlob(url)` (fetch → objectURL → anchor click). Current suite scope (`state.resultsSuiteId`).
+- **Verify:** `node --check` OK; download wiring reviewed.
+
+### R7 — Tests + README + docs
+- **What:** document + final green run.
+- **How:** README "Results cleanup + export" (4 delete + 2 export endpoints, UI buttons, report content); `docs/project/conventions.md` binary-download pattern (≤40 lines); `docs/project/base-classes.md` ResultService "read + delete" (≤40 lines); `docs/INDEX.md` entry (≤50). Full offline suite green.
+- **Verify:** `./mvnw -o clean test` all green.
+
 ## Bugs
 
 Running log of bug reports and their fixes. Newest first. Each entry: report, status, fix.

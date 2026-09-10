@@ -68,4 +68,32 @@ public class RunResultRepository {
     public void deleteAll() {
         em.createNativeQuery("DELETE FROM run_result").executeUpdate();
     }
+
+    /** Deletes all results of one suite. No-op when the suite has no results. */
+    @Transactional
+    public void deleteBySuiteId(Long suiteId) {
+        em.createNativeQuery("DELETE FROM run_result WHERE suite_id = :suiteId")
+                .setParameter("suiteId", suiteId)
+                .executeUpdate();
+    }
+
+    /** Deletes all results of one test case within one suite. */
+    @Transactional
+    public void deleteBySuiteIdAndTestCase(Long suiteId, Long testCaseId) {
+        em.createNativeQuery("DELETE FROM run_result WHERE suite_id = :suiteId AND test_case_id = :testCaseId")
+                .setParameter("suiteId", suiteId)
+                .setParameter("testCaseId", testCaseId)
+                .executeUpdate();
+    }
+
+    /** Deletes the results with the given ids. No-op for an empty list. */
+    @Transactional
+    public void deleteByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        em.createNativeQuery("DELETE FROM run_result WHERE id IN (:ids)")
+                .setParameter("ids", ids)
+                .executeUpdate();
+    }
 }

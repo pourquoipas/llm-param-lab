@@ -20,8 +20,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Read-side of the run/results REST API: filtered result queries and the per-suite
- * summary (best parameter combination per test case).
+ * Read + delete side of the run/results REST API: filtered result queries, the per-suite
+ * summary (best parameter combination per test case), and result deletion at four
+ * granularities (single, set, suite, all).
  */
 @ApplicationScoped
 public class ResultService {
@@ -55,6 +56,33 @@ public class ResultService {
             q.setParameter("testCaseId", testCaseId);
         }
         return q.getResultList();
+    }
+
+    /** Deletes a single result by id. */
+    public void deleteById(Long id) {
+        resultRepo.delete(id);
+    }
+
+    /** Deletes the results with the given ids. No-op for an empty list. */
+    public void deleteByIds(List<Long> ids) {
+        resultRepo.deleteByIds(ids);
+    }
+
+    /**
+     * Deletes all results of a suite, or only those of one test case within it when
+     * {@code testCaseId} is non-null.
+     */
+    public void deleteBySuite(Long suiteId, Long testCaseId) {
+        if (testCaseId != null) {
+            resultRepo.deleteBySuiteIdAndTestCase(suiteId, testCaseId);
+        } else {
+            resultRepo.deleteBySuiteId(suiteId);
+        }
+    }
+
+    /** Deletes every result across all suites. */
+    public void deleteAllResults() {
+        resultRepo.deleteAll();
     }
 
     /**
