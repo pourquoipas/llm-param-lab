@@ -475,7 +475,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | R4 | Excel (.xlsx) export of current suite (Apache POI) | ✅ done |
 | R5 | PDF export of current suite (OpenPDF) | ✅ done |
 | R6 | UI: Export Excel / Export PDF buttons (current suite) | ✅ done |
-| R7 | Tests + README + docs | ⬜ todo |
+| R7 | Tests + README + docs | ✅ done |
 
 ### R1 — Result deletion: repository + service
 - **What:** delete results by single id, by a set of ids, by suite, by suite+test case, or all.

@@ -11,12 +11,12 @@
 - SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
 - ApiException → base RuntimeException con status HTTP (404/409/400) + sottoclassi *Exception
 - SuiteNotFoundException → suite non trovata (→ HTTP 404)
-- ResultService → results(suiteId,testCaseId) + summary(suiteId) (raggruppa per seed → best combo per test case)
+- ResultService → read: results(suiteId,testCaseId) + summary(suiteId) (raggruppa per seed → best combo); delete: deleteById/deleteByIds/deleteBySuite(suiteId,testCaseId)/deleteAll
 - NoActiveModelException → nessun modello attivo (→ HTTP 400)
 
 ## REST
 - ApiExceptionMapper → @Provider ExceptionMapper<ApiException> → JSON {"error": msg}
-- ResultResource → /api/run-all, /api/results, /api/results/summary (run suite in TestSuiteResource)
+- ResultResource → /api/run-all, /api/results (+delete), /api/results/summary, /api/results/export/{xlsx,pdf} (run suite in TestSuiteResource)
 
 ## DTO
 - JudgeResponse → record { score, reason } da JSON del judge (@JsonIgnoreProperties ignoreUnknown)

@@ -42,7 +42,9 @@ Single page (`index.html` + `app.js`, no build step) with four tabs:
   summary card (one block per seed, best combo + avg score per test case). Below: a results
   table — Test Case, Params, Seed, Score, Passed, Latency, Tokens In/Out, Thinking,
   In/Out t/s, Eval Type, Date. Click a row to expand raw output + score reason.
-  "Run Suite" / "Run All" trigger runs.
+  "Run Suite" / "Run All" trigger runs. Toolbar: **Select all** + **Delete selected /
+  Delete suite results / Delete all results** (each confirms first), and **Export Excel /
+  Export PDF** which download the current suite's report.
 - **top bar** — **＋ Test case** (insert the ready-to-run `code reviewer` suite) and
   **Clean DB** (wipe everything).
 
@@ -175,6 +177,17 @@ Base path: `http://localhost:8080`
 | POST | `/api/run-all` | Run every suite, returns all results |
 | GET | `/api/results?suiteId={id}&testCaseId={id}` | Filtered results |
 | GET | `/api/results/summary?suiteId={id}` | Per-suite summary (grouped by seed) |
+| DELETE | `/api/results/{id}` | Delete one result (204) |
+| POST | `/api/results/delete` | Delete a set of results, body `{ "ids": [...] }` (204; 400 if empty) |
+| DELETE | `/api/results?suiteId={id}&testCaseId={id}` | Delete a suite's results (optionally one test case) (204; 400 if no suiteId) |
+| DELETE | `/api/results/all` | Delete all results across every suite (204) |
+| GET | `/api/results/export/xlsx?suiteId={id}` | Download the suite report as `.xlsx` |
+| GET | `/api/results/export/pdf?suiteId={id}` | Download the suite report as `.pdf` |
+
+Both export endpoints return the file with `Content-Disposition: attachment;
+filename=report-<suite>.<ext>` (400 without `suiteId`, 404 for an unknown suite). The report
+contains a **summary** (best param combo per seed per test case) and a **results** table
+(test case, seed, params, score, passed, latency, tokens, thinking, t/s, eval type).
 
 **Results** (`GET /api/results`) returns `RunResult` objects: `id`, `suiteId`, `testCaseId`,
 `seed`, `modelConfigId`, `paramsJson`, `rawOutput`, `latencyMs`, `tokensIn`, `tokensOut`,
