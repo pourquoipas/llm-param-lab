@@ -444,7 +444,7 @@ Batch of requested improvements. One atomic commit each. Newest first.
 | # | Improvement | Status |
 |---|-------------|--------|
 | I1 | New chat per task (test + judge) — no memory carry-over | ✅ done |
-| I2 | More sweep params (chat-level, not model presets) | ⏳ pending |
+| I2 | More sweep params (chat-level, not model presets) | ✅ done |
 | I3 | Savable judge params (temperature/topP/seed) alongside prompt | ⏳ pending |
 | I4a | Seed sweep (separate from param sweep) + per-seed grouping | ⏳ pending |
 | I4b | Thinking stats (thinking tokens/time) + input/output t/s | ⏳ pending |
@@ -456,6 +456,12 @@ Batch of requested improvements. One atomic commit each. Newest first.
 - **What:** each LLM call (model under test + judge) must be a fresh, stateless chat — no `ChatMemory`, no cross-task memory.
 - **Status:** ✅ done. Already true in code (`chat()` is stateless, fresh message list per call).
 - **Verify:** `TestRunnerServiceIsolationTest` — a second task's request contains none of the first task's messages. Documented in README "Run semantics".
+
+### I2 — More sweep params (chat-level)
+- **What:** sweep the common OpenAI sampling params, applied per call (not model presets).
+- **Status:** ✅ done. Sweepable set = `temperature`, `topP`, `topK`, `frequencyPenalty`, `presencePenalty`, `maxTokens`.
+- **How:** `TestSuiteService.VALID_PARAMS` extended; `TestRunnerService.buildParameters` maps them via the generic `ChatRequestParameters` builder (works for OpenAI + Ollama); UI param field is now a dropdown. `seed`/`reasoningEffort` are provider-specific → handled in I4.
+- **Verify:** `TestRunnerServiceParamsTest` (mapping), `TestSuiteResourceTest.createWithExtendedChatParamsSucceeds` (validation accepts new names).
 
 ## Bugs
 

@@ -92,6 +92,26 @@ class TestSuiteResourceTest {
     }
 
     @Test
+    void createWithExtendedChatParamsSucceeds() {
+        String name = uniqueName();
+        Map<String, Object> body = validBody(name);
+        body.put("paramSweeps", List.of(
+                Map.of("paramName", "topK", "values", "[40, 80]"),
+                Map.of("paramName", "frequencyPenalty", "values", "[0.0, 0.5]"),
+                Map.of("paramName", "presencePenalty", "values", "[0.25]"),
+                Map.of("paramName", "maxTokens", "values", "[256]")));
+        Long id = create(body);
+        try {
+            given().when().get("/api/suites/" + id)
+                    .then().statusCode(200)
+                    .body("paramSweeps.size()", equalTo(4))
+                    .body("paramSweeps[0].paramName", equalTo("topK"));
+        } finally {
+            delete(id);
+        }
+    }
+
+    @Test
     void createAppearsInList() {
         String name = uniqueName();
         Long id = create(validBody(name));

@@ -341,14 +341,23 @@ public class TestRunnerService {
         }
     }
 
-    private ChatRequestParameters buildParameters(Map<String, Object> combo) {
+    /**
+     * Maps a combo of chat-level params to {@link ChatRequestParameters}. Uses the generic
+     * builder so the same combo works for both OpenAI-compatible and Ollama models.
+     * {@code seed} and {@code reasoningEffort} are provider-specific and handled separately
+     * (see the seed sweep). Unknown names are ignored.
+     */
+    ChatRequestParameters buildParameters(Map<String, Object> combo) {
         var builder = ChatRequestParameters.builder();
         for (Map.Entry<String, Object> entry : combo.entrySet()) {
             switch (entry.getKey()) {
                 case "temperature" -> builder.temperature(toDouble(entry.getValue()));
                 case "topP" -> builder.topP(toDouble(entry.getValue()));
+                case "topK" -> builder.topK(toInt(entry.getValue()));
+                case "frequencyPenalty" -> builder.frequencyPenalty(toDouble(entry.getValue()));
+                case "presencePenalty" -> builder.presencePenalty(toDouble(entry.getValue()));
                 case "maxTokens" -> builder.maxOutputTokens(toInt(entry.getValue()));
-                default -> { /* unknown param name: ignore */ }
+                default -> { /* seed / reasoningEffort / unknown: ignored here */ }
             }
         }
         return builder.build();

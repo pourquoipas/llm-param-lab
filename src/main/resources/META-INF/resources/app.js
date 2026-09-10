@@ -13,6 +13,17 @@ const state = {
   summary: null,
 };
 
+// Chat-level params that can be swept (applied per call, not pre-set on the model).
+// Must mirror TestSuiteService.VALID_PARAMS.
+const SWEEP_PARAMS = [
+  { name: 'temperature', label: 'temperature (0–2)' },
+  { name: 'topP', label: 'topP (0–1)' },
+  { name: 'topK', label: 'topK (int)' },
+  { name: 'frequencyPenalty', label: 'frequencyPenalty (-2–2)' },
+  { name: 'presencePenalty', label: 'presencePenalty (-2–2)' },
+  { name: 'maxTokens', label: 'maxTokens (int)' },
+];
+
 // ---- API wrapper -----------------------------------------------------------
 async function api(path, options = {}) {
   const opts = { ...options };
@@ -370,13 +381,17 @@ function renderSweeps() {
   d.paramSweeps.forEach((sw, i) => {
     const row = document.createElement('div');
     row.className = 'sub-row';
+    const options = SWEEP_PARAMS
+      .map((p) => `<option value="${p.name}"${p.name === sw.paramName ? ' selected' : ''}>${p.label}</option>`)
+      .join('');
     row.innerHTML = `
       <div class="sub-grid">
-        <label>Param Name</label><input class="sw-name" value="${esc(sw.paramName)}">
+        <label>Param</label>
+        <select class="sw-name"><option value="">— choose —</option>${options}</select>
         <label>Values (comma-separated)</label><input class="sw-values" value="${esc(valuesToInput(sw.values))}">
       </div>
       <button class="btn-sm btn-danger sw-del">Delete</button>`;
-    row.querySelector('.sw-name').addEventListener('input', (e) => { sw.paramName = e.target.value; });
+    row.querySelector('.sw-name').addEventListener('change', (e) => { sw.paramName = e.target.value; });
     row.querySelector('.sw-values').addEventListener('input', (e) => { sw.values = inputToValues(e.target.value); });
     row.querySelector('.sw-del').addEventListener('click', () => { d.paramSweeps.splice(i, 1); renderSweeps(); });
     list.appendChild(row);

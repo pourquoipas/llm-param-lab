@@ -28,7 +28,13 @@ import java.util.Set;
 @ApplicationScoped
 public class TestSuiteService {
 
-    private static final Set<String> VALID_PARAMS = Set.of("temperature", "topP", "maxTokens");
+    /**
+     * Sweepable, chat-level parameters (applied per call, not pre-set on the model).
+     * All are part of the common OpenAI sampling set and are supported by both
+     * OpenAI-compatible and Ollama providers via the generic {@code ChatRequestParameters}.
+     */
+    static final Set<String> VALID_PARAMS =
+            Set.of("temperature", "topP", "topK", "frequencyPenalty", "presencePenalty", "maxTokens");
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Inject
@@ -162,7 +168,8 @@ public class TestSuiteService {
         if (req.paramSweeps() != null) {
             for (ParamSweepDto ps : req.paramSweeps()) {
                 if (!VALID_PARAMS.contains(ps.paramName())) {
-                    throw new ValidationException("paramName must be one of temperature, topP, maxTokens");
+                    throw new ValidationException(
+                            "paramName must be one of: " + VALID_PARAMS);
                 }
                 if (!isValidJsonArray(ps.values())) {
                     throw new ValidationException("values must be a valid JSON array");

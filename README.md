@@ -56,6 +56,13 @@ stateless, single-turn `chat()` call built from a fresh message list — no `Cha
 is wired. A test case (or a judge evaluation) never sees messages from a previous task,
 so results are not contaminated by conversation memory.
 
+**Sweepable parameters:** a suite can sweep any of these chat-level parameters (applied
+per call via `ChatRequestParameters`, *not* pre-set on the model): `temperature`, `topP`,
+`topK`, `frequencyPenalty`, `presencePenalty`, `maxTokens`. Provider-agnostic (works for
+both OpenAI-compatible and Ollama). `seed` (see the seed sweep) and `reasoningEffort` are
+provider-specific and handled separately. If a param is not swept, the model's own default
+is used (no token cap is injected unless `maxTokens` is swept).
+
 ## Schema versioning
 
 All database changes go through Liquibase changelogs in `db/changelog/changes/`.
