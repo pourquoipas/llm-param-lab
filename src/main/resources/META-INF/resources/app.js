@@ -576,6 +576,9 @@ async function renderResults() {
         <button class="btn-sm btn-danger" id="btn-del-selected">Delete selected</button>
         <button class="btn-sm btn-danger" id="btn-del-suite" style="margin-left:8px;">Delete suite results</button>
         <button class="btn-sm btn-danger" id="btn-del-all" style="margin-left:8px;">Delete all results</button>
+        <span style="flex:1;"></span>
+        <button class="btn-sm btn" id="btn-exp-xlsx">Export Excel</button>
+        <button class="btn-sm btn" id="btn-exp-pdf" style="margin-left:8px;">Export PDF</button>
       </div>
       <table>
         <thead><tr><th></th><th>Test Case</th><th>Params</th><th>Seed</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Thinking</th><th>In/Out t/s</th><th>Eval Type</th><th>Date</th><th></th></tr></thead>
@@ -604,6 +607,8 @@ async function renderResults() {
   panel.querySelector('#btn-del-selected').addEventListener('click', deleteSelectedResults);
   panel.querySelector('#btn-del-suite').addEventListener('click', deleteSuiteResults);
   panel.querySelector('#btn-del-all').addEventListener('click', deleteAllResults);
+  panel.querySelector('#btn-exp-xlsx').addEventListener('click', () => exportResults('xlsx'));
+  panel.querySelector('#btn-exp-pdf').addEventListener('click', () => exportResults('pdf'));
 
   renderSummaryCard();
   renderResultsTable(tcName);
@@ -747,6 +752,34 @@ async function deleteAllResults() {
     await renderResults();
   } catch (e) { /* toast already shown */ }
   finally { hideSpinner(); }
+}
+
+// ---- R6: result export actions --------------------------------------------
+async function downloadBlob(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  const disp = res.headers.get('Content-Disposition') || '';
+  const m = disp.match(/filename="?([^";]+)"?/);
+  a.download = m ? m[1] : 'report';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+async function exportResults(format) {
+  if (!state.resultsSuiteId) { toast('No suite selected', 'info'); return; }
+  showSpinner();
+  try {
+    await downloadBlob('/api/results/export/' + format + '?suiteId=' + state.resultsSuiteId);
+    toast('Exported ' + (format === 'xlsx' ? 'Excel' : 'PDF'), 'success');
+  } catch (e) {
+    toast('Export failed', 'error');
+  } finally { hideSpinner(); }
 }
 
 async function runAll() {
