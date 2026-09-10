@@ -51,6 +51,11 @@ evaluation (the judge), so one `.env` drives both.
 explains why) and the run **continues** with the remaining combos — a single slow or
 failing combo never aborts the whole suite.
 
+**New chat per task:** every LLM call (the model under test *and* the judge) is a
+stateless, single-turn `chat()` call built from a fresh message list — no `ChatMemory`
+is wired. A test case (or a judge evaluation) never sees messages from a previous task,
+so results are not contaminated by conversation memory.
+
 ## Schema versioning
 
 All database changes go through Liquibase changelogs in `db/changelog/changes/`.

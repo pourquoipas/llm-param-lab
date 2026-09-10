@@ -437,6 +437,26 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 | 18 | UI admin buttons | ✅ done |
 | 19 | README + final E2E | ✅ done |
 
+## Improvements
+
+Batch of requested improvements. One atomic commit each. Newest first.
+
+| # | Improvement | Status |
+|---|-------------|--------|
+| I1 | New chat per task (test + judge) — no memory carry-over | ✅ done |
+| I2 | More sweep params (chat-level, not model presets) | ⏳ pending |
+| I3 | Savable judge params (temperature/topP/seed) alongside prompt | ⏳ pending |
+| I4a | Seed sweep (separate from param sweep) + per-seed grouping | ⏳ pending |
+| I4b | Thinking stats (thinking tokens/time) + input/output t/s | ⏳ pending |
+| I5 | No default token limit (use model default unless in suite) | ⏳ pending |
+| I6 | Raw-JSON injection into chat request | ⚠️ not implementable (langchain4j) |
+| I7 | README: interface, API + data-structure docs | ⏳ pending |
+
+### I1 — New chat per task (test + judge)
+- **What:** each LLM call (model under test + judge) must be a fresh, stateless chat — no `ChatMemory`, no cross-task memory.
+- **Status:** ✅ done. Already true in code (`chat()` is stateless, fresh message list per call).
+- **Verify:** `TestRunnerServiceIsolationTest` — a second task's request contains none of the first task's messages. Documented in README "Run semantics".
+
 ## Bugs
 
 Running log of bug reports and their fixes. Newest first. Each entry: report, status, fix.
