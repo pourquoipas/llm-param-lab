@@ -1,5 +1,8 @@
 package com.example.llmlab;
 
+import com.example.llmlab.domain.EvaluationType;
+import com.example.llmlab.domain.RunResult;
+import com.example.llmlab.repository.RunResultRepository;
 import com.example.llmlab.service.ModelConfigService;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -30,6 +33,9 @@ class ResultResourceTest {
 
     @Inject
     ModelConfigService modelConfigService;
+
+    @Inject
+    RunResultRepository resultRepo;
 
     private static String uniqueName() {
         return "rest-result-suite-" + SEQ.incrementAndGet();
@@ -105,6 +111,38 @@ class ResultResourceTest {
         given().queryParam("suiteId", 999999)
                 .when().get("/api/results/summary")
                 .then().statusCode(404);
+    }
+
+    @Test
+    void summaryWithLegacyNullSeedResultReturns200GroupedUnderSeedZero() {
+        Long id = create(validBody(uniqueName()));
+        Long testCaseId = given().when().get("/api/suites/" + id)
+                .then().statusCode(200)
+                .extract().jsonPath().getLong("testCases[0].id");
+        RunResult legacy = new RunResult();
+        legacy.setSuiteId(id);
+        legacy.setTestCaseId(testCaseId);
+        legacy.setParamsJson("{}");
+        legacy.setRawOutput("out");
+        legacy.setLatencyMs(100L);
+        legacy.setTokensIn(10);
+        legacy.setTokensOut(20);
+        legacy.setScore(0.9);
+        legacy.setScoreReason("ok");
+        legacy.setEvaluationType(EvaluationType.JUDGE_LLM);
+        legacy.setPassed(true);
+        // seed intentionally unset: simulates a row created before the seed sweep feature (004)
+        RunResult saved = resultRepo.save(legacy);
+        try {
+            Response response = given().queryParam("suiteId", id)
+                    .when().get("/api/results/summary");
+            response.then().statusCode(200)
+                    .body("seeds.size()", equalTo(1))
+                    .body("seeds[0].seed", equalTo(0));
+        } finally {
+            resultRepo.delete(saved.getId());
+            delete(id);
+        }
     }
 
     @Test

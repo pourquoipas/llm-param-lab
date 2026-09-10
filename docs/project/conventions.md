@@ -16,7 +16,7 @@
 - default model → ModelConfigService.ensureDefaultModel() (name "default", active) da LlmConfig; seed + admin test-case lo usano
 - datasource → jdbc.url (nested under jdbc), db-kind, username, password; devservices.enabled=false (file H2, non in-memory)
 - liquibase → change-log + migrate-at-start: true (obbligatorio); hibernate orm.ddl-auto: none (solo Liquibase)
-- Liquibase YAML → colonne in block-style (- column:), mai flow-style inline {} (ParsedNodeException)
+- Liquibase YAML → colonne in block-style (- column:), mai flow-style inline {} (ParsedNodeException); backfill dati → changeSet `- sql: UPDATE ...` (es. 006 seed legacy → 0)
 
 ## Regola
 - Endpoint REST → sempre in *Resource, mai in *Service

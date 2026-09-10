@@ -467,6 +467,11 @@ Batch of requested improvements. One atomic commit each. Newest first.
 
 Running log of bug reports and their fixes. Newest first. Each entry: report, status, fix.
 
+### Bug #3 — Results page 500 (NPE) on legacy rows with NULL seed
+- **Report:** pagina risultati → 500 "element cannot be mapped to a null key": righe `run_result` create prima della seed sweep (migration 004) hanno `seed = NULL`; `ResultService.summary()` faceva `groupingBy(RunResult::getSeed)` → NPE su chiave null.
+- **Status:** ✅ fixed.
+- **Fix:** (1) backfill dati migration `006-backfill-seed.yaml` (`UPDATE run_result SET seed = 0 WHERE seed IS NULL`) — le righe legacy compaiono come seed 0; (2) difesa in codice: grouping null-safe (`seed == null → 0`) così una riga null non può più fare 500. Test: `ResultResourceTest#summaryWithLegacyNullSeedResultReturns200GroupedUnderSeedZero`.
+
 ### Bug #2 — Suite run aborted on LLM timeout (missing combo results)
 - **Reported:** 2026-09-10
 - **Status:** ✅ fixed

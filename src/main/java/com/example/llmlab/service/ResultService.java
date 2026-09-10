@@ -66,7 +66,7 @@ public class ResultService {
                 .orElseThrow(() -> new SuiteNotFoundException(suiteId));
         List<RunResult> results = resultRepo.findBySuiteId(suiteId);
         Map<Integer, List<RunResult>> bySeed = results.stream()
-                .collect(Collectors.groupingBy(RunResult::getSeed));
+                .collect(Collectors.groupingBy(r -> r.getSeed() == null ? 0 : r.getSeed()));
 
         List<RunSummaryResponse.SeedSummary> seedSummaries = bySeed.entrySet().stream()
                 .map(e -> new RunSummaryResponse.SeedSummary(e.getKey(), buildCaseSummaries(e.getValue())))

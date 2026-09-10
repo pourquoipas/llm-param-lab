@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-backfill-run-result-seed
+      author: llmlab
+      comment: backfill seed=0 for run_result rows created before the seed sweep feature (004)
+      changes:
+        - sql:
+            sql: UPDATE run_result SET seed = 0 WHERE seed IS NULL

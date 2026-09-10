@@ -116,6 +116,7 @@ langchain4j.
 list of integer seeds. All cases × combos are re-run once per seed (number of seeds = number
 of full runs). An empty list → one seed is generated and applied to every run. Every
 `RunResult` stores its `seed`, and the results summary **groups and compares per seed**.
+Legacy rows (created before the seed sweep) are backfilled to `seed = 0` (migration 006).
 The seed is passed to the model (Ollama `seed` / OpenAI-compatible `seed`). UI: "Seed Sweep"
 field in the suite editor; one summary block per seed.
 
