@@ -39,10 +39,16 @@ The default LLM is configured in a gitignored `.env` file in the project root
 | `LLM_BASE_URL` | `http://localhost:11000/v1` | Base URL of the LLM endpoint |
 | `LLM_MODEL_NAME` | `Qwen3.8-27B-UD-IQ3_S.gguf` | Model name to request |
 | `LLM_API_KEY` | *(empty)* | API key (optional) |
+| `LLM_TIMEOUT` | `PT15M` | Per-request LLM timeout (ISO-8601); raise for slow local models |
 
 On first start the app creates a single **default** model from these values and
 flags it active. The same model is used for execution (the active model) and for
 evaluation (the judge), so one `.env` drives both.
+
+**Run resilience:** every combo's LLM call uses the timeout above. If a combo fails
+(e.g. it times out), it is recorded as an `ERROR` result (no score, `scoreReason`
+explains why) and the run **continues** with the remaining combos — a single slow or
+failing combo never aborts the whole suite.
 
 ## Schema versioning
 

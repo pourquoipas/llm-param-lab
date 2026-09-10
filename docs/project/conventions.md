@@ -13,8 +13,9 @@
 - Suite editor → state.suiteDraft (working copy) + input live-bound; save = POST new / PUT existing (full replace testCases+paramSweeps)
 
 ## Config (.env + application.yml)
-- .env (gitignored) → LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL_NAME/LLM_API_KEY → Quarkus normalizza LLM_* → llm.*
+- .env (gitignored) → LLM_PROVIDER/LLM_BASE_URL/LLM_MODEL_NAME/LLM_API_KEY/LLM_TIMEOUT → Quarkus normalizza LLM_* → llm.*
 - LlmConfig (config/) → @ConfigProperty llm.* con defaultValue (boot senza .env); apiKey → Optional<String> (empty→null, SRCFG00040)
+- llm.timeout (LlmConfig) → Duration default PT15M; ModelFactory applica .timeout(llm.timeout()) su builder Ollama+OpenAI
 - default model → ModelConfigService.ensureDefaultModel() (name "default", active) da LlmConfig; seed + admin test-case lo usano
 - datasource → quarkus.datasource.jdbc.url (nested under jdbc), db-kind, username, password
 - devservices → quarkus.datasource.devservices.enabled: false (file H2, non in-memory)
@@ -37,6 +38,8 @@
 - Suite create/update → replaceChildren: delete testCases+paramSweeps esistenti poi insert (full replace, no JPA cascade)
 - Routing → route suite-scoped in ONE *Resource (overlap cross-resource /api/suites vs /api+/suites/{id}/run → 404 HTML default)
 - Run exceptions → SuiteAlreadyRunning 409, SuiteNotFound 404, NoActiveModel 400 (tutte ApiException)
+- Run resiliente → runOne: call LLM + eval in try/catch; su failure (timeout ecc.) → salva RunResult evaluationType=ERROR (score=null, passed=false, scoreReason="<fase>: <Type>: <msg>") e ritorna → il loop prosegue (una combo lenta/errata non aborte la suite)
+- EvaluationType.ERROR → combo non eseguita/valutata (timeout); colonna VARCHAR(30), no migration
 - Error handling → ApiExceptionMapper (ApiException → JSON status) + GenericExceptionMapper (last-resort: WebApplicationException keeps status, else JSON 500)
 - Seed data → seed/SeedData.java @ApplicationScoped, @Transactional onStartup(@Observes StartupEvent); idempotente (solo se tabella vuota via findAll().isEmpty())
 - DTO con id read-only → record *Dto con Long id come primo componente (popolato solo in toResponse, ignorato in create/update che usano accessors)

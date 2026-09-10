@@ -113,8 +113,8 @@ public class TestRunnerService {
         return all;
     }
 
-    private RunResult runOne(TestSuite suite, TestCase testCase, Map<String, Object> combo,
-                             ModelConfig model, ChatModel chatModel) {
+    RunResult runOne(TestSuite suite, TestCase testCase, Map<String, Object> combo,
+                     ModelConfig model, ChatModel chatModel) {
         List<ChatMessage> messages = new ArrayList<>();
         if (testCase.getSystemPrompt() != null && !testCase.getSystemPrompt().isBlank()) {
             messages.add(SystemMessage.from(testCase.getSystemPrompt()));
@@ -127,14 +127,43 @@ public class TestRunnerService {
                 .build();
 
         long start = System.nanoTime();
-        ChatResponse response = chatModel.chat(request);
-        long latencyMs = (System.nanoTime() - start) / 1_000_000L;
+        String rawOutput = null;
+        TokenUsage usage = null;
+        long latencyMs;
 
-        String rawOutput = response.aiMessage() != null ? response.aiMessage().text() : null;
-        TokenUsage usage = response.tokenUsage();
+        // 1) Call the model under test. A single failing combo must never abort the whole
+        //    run (a local model can be slow and time out): record an ERROR result and
+        //    let the next combo proceed.
+        try {
+            ChatResponse response = chatModel.chat(request);
+            latencyMs = (System.nanoTime() - start) / 1_000_000L;
+            rawOutput = response.aiMessage() != null ? response.aiMessage().text() : null;
+            usage = response.tokenUsage();
+        } catch (Exception e) {
+            return saveResult(suite, testCase, combo, model, null, null,
+                    (System.nanoTime() - start) / 1_000_000L,
+                    null, "execution: " + errorMessage(e), EvaluationType.ERROR, false);
+        }
 
-        Evaluation evaluation = evaluate(suite, testCase, rawOutput);
+        // 2) Evaluate. If evaluation itself fails (e.g. the judge model times out) we keep
+        //    the captured output but still record the combo as ERROR so the run continues.
+        Evaluation evaluation;
+        try {
+            evaluation = evaluate(suite, testCase, rawOutput);
+        } catch (Exception e) {
+            return saveResult(suite, testCase, combo, model, rawOutput, usage, latencyMs,
+                    null, "evaluation: " + errorMessage(e), EvaluationType.ERROR, false);
+        }
 
+        return saveResult(suite, testCase, combo, model, rawOutput, usage, latencyMs,
+                evaluation.score(), evaluation.reason(), evaluation.type(), evaluation.passed());
+    }
+
+    /** Builds and persists a single {@link RunResult} (shared by the success and error paths). */
+    private RunResult saveResult(TestSuite suite, TestCase testCase, Map<String, Object> combo,
+                                 ModelConfig model, String rawOutput, TokenUsage usage,
+                                 long latencyMs, Double score, String scoreReason,
+                                 EvaluationType evaluationType, Boolean passed) {
         RunResult result = new RunResult();
         result.setSuiteId(suite.getId());
         result.setTestCaseId(testCase.getId());
@@ -146,11 +175,19 @@ public class TestRunnerService {
             result.setTokensIn(usage.inputTokenCount());
             result.setTokensOut(usage.outputTokenCount());
         }
-        result.setScore(evaluation.score());
-        result.setScoreReason(evaluation.reason());
-        result.setEvaluationType(evaluation.type());
-        result.setPassed(evaluation.passed());
+        result.setScore(score);
+        result.setScoreReason(scoreReason);
+        result.setEvaluationType(evaluationType);
+        result.setPassed(passed);
         return runResultRepository.save(result);
+    }
+
+    /** Compact, non-null message for a failed combo (e.g. {@code TimeoutException: request timed out}). */
+    private static String errorMessage(Throwable e) {
+        String msg = e.getMessage();
+        return (msg != null && !msg.isBlank())
+                ? e.getClass().getSimpleName() + ": " + msg
+                : e.getClass().getSimpleName();
     }
 
     /**

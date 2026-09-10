@@ -1,6 +1,7 @@
 package com.example.llmlab;
 
 import com.example.llmlab.config.AppConfig;
+import com.example.llmlab.config.LlmConfig;
 import com.example.llmlab.config.ModelFactory;
 import com.example.llmlab.domain.ModelConfig;
 import com.example.llmlab.domain.ModelProvider;
@@ -24,6 +25,17 @@ class ModelFactoryTest {
 
     @Inject
     AppConfig appConfig;
+
+    @Inject
+    LlmConfig llmConfig;
+
+    @Test
+    void llmTimeoutIsConfiguredAndGenerous() {
+        // A local model can be slow: the default per-request timeout must be generous.
+        Assertions.assertNotNull(llmConfig.timeout());
+        Assertions.assertTrue(llmConfig.timeout().toMinutes() >= 5,
+                "llm.timeout should default to a generous value (>= 5 min)");
+    }
 
     @Test
     void buildsOllamaModel() {

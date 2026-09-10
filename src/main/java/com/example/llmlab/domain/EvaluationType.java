@@ -6,5 +6,7 @@ public enum EvaluationType {
     CONTAINS,
     REGEX_MATCH,
     JUDGE_LLM,
-    SKIPPED
+    SKIPPED,
+    /** The combo could not be executed/scored (e.g. LLM request timeout). */
+    ERROR
 }

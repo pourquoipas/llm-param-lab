@@ -4,6 +4,7 @@ import com.example.llmlab.domain.ModelProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import java.time.Duration;
 import java.util.Optional;
 
 /**
@@ -30,6 +31,14 @@ public class LlmConfig {
     @ConfigProperty(name = "llm.api.key")
     Optional<String> apiKey;
 
+    /**
+     * Per-request timeout for the LLM HTTP calls. Generous by default because a local
+     * model can be slow; override via {@code LLM_TIMEOUT} in {@code .env}
+     * (ISO-8601, e.g. {@code PT15M}).
+     */
+    @ConfigProperty(name = "llm.timeout", defaultValue = "PT15M")
+    Duration timeout;
+
     public ModelProvider provider() {
         return ModelProvider.valueOf(provider);
     }
@@ -40,6 +49,11 @@ public class LlmConfig {
 
     public String modelName() {
         return modelName;
+    }
+
+    /** Per-request LLM timeout (default 15 minutes). */
+    public Duration timeout() {
+        return timeout;
     }
 
     /** API key, or null when unset/blank (local servers need no key). */

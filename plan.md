@@ -441,6 +441,24 @@ Steps 5–6 and 7–8 can proceed in parallel if desired, but one-at-a-time is t
 
 Running log of bug reports and their fixes. Newest first. Each entry: report, status, fix.
 
+### Bug #2 — Suite run aborted on LLM timeout (missing combo results)
+- **Reported:** 2026-09-10
+- **Status:** ✅ fixed
+- **Area:** Core run → `TestRunnerService` / LLM request timeout
+- **Report:**
+  - Suite with 2 test cases + temperature sweep `[0.1, 1.0]` → only **3 of 4** results saved (missing TC2 @ 1.0).
+  - Log: `dev.langchain4j.exception.TimeoutException: request timed out` thrown from `runOne` aborted the whole run.
+  - Want: raise the timeout (a local LLM can be slow); on timeout, mark that combo as errored (timeout) and **continue** with the rest.
+- **Root cause:**
+  - `ModelFactory` set **no** per-request timeout → langchain4j short default → a slow local model timed out.
+  - `runOne` did not catch the exception → it propagated out of the nested loops in `runSuite` → the run aborted, losing the current + all subsequent combos.
+- **Fix:**
+  - `LlmConfig`: new `llm.timeout` (`Duration`, default `PT15M`, override via `LLM_TIMEOUT` in `.env`).
+  - `ModelFactory`: applies `.timeout(llm.timeout())` on both the Ollama and OpenAI builders.
+  - `TestRunnerService.runOne`: the model call is wrapped in try/catch → on failure it records an `ERROR` `RunResult` (score=null, passed=false, `scoreReason="execution: <Type>: <msg>"`) and **returns**, so the loop continues. The evaluation is wrapped too (a judge timeout keeps the captured output but records `ERROR`).
+  - `EvaluationType`: new `ERROR` value (DB column already `VARCHAR(30)` — no migration).
+- **Verify:** offline unit tests (`TestRunnerServiceResilienceTest`) — a throwing model records `ERROR` without throwing and the next combo still runs; `llm.timeout` defaults to a generous value. Full suite 49 green.
+
 ### Bug #1 — Model modal: X (top-right) doesn't close; want Save + X-to-discard
 - **Reported:** 2026-09-09
 - **Status:** ✅ fixed
