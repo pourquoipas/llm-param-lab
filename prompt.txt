@@ -445,7 +445,7 @@ system prompts, different params — all in one run.
 ## 10. Project Structure
 
 ```
-src/main/java/com/example/llmlab/
+src/main/java/dev/gnius/llmlab/
   LlmParamLabApp.java
   config/
     AppConfig.java          (reads app.* from yml)

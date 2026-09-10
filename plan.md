@@ -32,7 +32,7 @@ verified before the next. Wait for confirmation before starting a new step
   - `quarkus-jackson`
   - langchain4j 1.x: `langchain4j`, `langchain4j-open-ai`, `langchain4j-ollama`
   - `snakeyaml` (Quarkus pulls it in, but declare explicitly for config loading)
-- [ ] `src/main/java/com/example/llmlab/LlmParamLabApp.java` — minimal `@ApplicationScoped` class + a tiny `/api/ping` resource returning `"pong"` (temp, removed later) — just to prove the app boots.
+- [ ] `src/main/java/dev/gnius/llmlab/LlmParamLabApp.java` — minimal `@ApplicationScoped` class + a tiny `/api/ping` resource returning `"pong"` (temp, removed later) — just to prove the app boots.
 - [x] `src/main/resources/application.yml` — minimal (datasource/h2 file in `./data/llmlab`, `hibernate.ddl-auto: none`)
 
 Notes from implementation:
