@@ -48,6 +48,16 @@ public class TestSuite {
     @Column(name = "judge_prompt")
     private String judgePrompt;
 
+    /** Judge temperature. Null → 0.0 (deterministic). */
+    @Column(name = "judge_temperature")
+    private Double judgeTemperature;
+
+    @Column(name = "judge_top_p")
+    private Double judgeTopP;
+
+    @Column(name = "judge_seed")
+    private Integer judgeSeed;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -124,6 +134,30 @@ public class TestSuite {
 
     public void setJudgePrompt(String judgePrompt) {
         this.judgePrompt = judgePrompt;
+    }
+
+    public Double getJudgeTemperature() {
+        return judgeTemperature;
+    }
+
+    public void setJudgeTemperature(Double judgeTemperature) {
+        this.judgeTemperature = judgeTemperature;
+    }
+
+    public Double getJudgeTopP() {
+        return judgeTopP;
+    }
+
+    public void setJudgeTopP(Double judgeTopP) {
+        this.judgeTopP = judgeTopP;
+    }
+
+    public Integer getJudgeSeed() {
+        return judgeSeed;
+    }
+
+    public void setJudgeSeed(Integer judgeSeed) {
+        this.judgeSeed = judgeSeed;
     }
 
     public LocalDateTime getCreatedAt() {

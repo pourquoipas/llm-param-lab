@@ -56,6 +56,12 @@ stateless, single-turn `chat()` call built from a fresh message list — no `Cha
 is wired. A test case (or a judge evaluation) never sees messages from a previous task,
 so results are not contaminated by conversation memory.
 
+**Judge parameters (savable per suite):** judge `temperature` (defaults to **0.0** when
+empty — deterministic), judge `topP`, and judge `seed`. Stored on the suite so different
+domains (logic, data analysis, creative writing) can keep distinct judge configurations.
+Applied provider-aware: `seed` is set on both OpenAI-compatible and Ollama; nulls are
+omitted so the model's own default applies.
+
 **Sweepable parameters:** a suite can sweep any of these chat-level parameters (applied
 per call via `ChatRequestParameters`, *not* pre-set on the model): `temperature`, `topP`,
 `topK`, `frequencyPenalty`, `presencePenalty`, `maxTokens`. Provider-agnostic (works for

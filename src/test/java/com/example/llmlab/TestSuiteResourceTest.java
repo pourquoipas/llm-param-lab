@@ -214,4 +214,23 @@ class TestSuiteResourceTest {
     void deleteNotFoundReturns404() {
         given().when().delete("/api/suites/999999").then().statusCode(404);
     }
+
+    @Test
+    void judgeParamsRoundTrip() {
+        // I3: savable judge params round-trip through the API.
+        Map<String, Object> body = validBody(uniqueName());
+        body.put("judgeTemperature", 0.2);
+        body.put("judgeTopP", 0.9);
+        body.put("judgeSeed", 42);
+        Long id = create(body);
+        try {
+            given().when().get("/api/suites/" + id)
+                    .then().statusCode(200)
+                    .body("judgeTemperature", equalTo(0.2f))
+                    .body("judgeTopP", equalTo(0.9f))
+                    .body("judgeSeed", equalTo(42));
+        } finally {
+            delete(id);
+        }
+    }
 }

@@ -274,6 +274,7 @@ function newSuite() {
   state.suiteDraft = {
     id: null, name: '', description: '', expectedOutput: '',
     expectedOutputMode: 'NONE', judgeModelId: null, judgePrompt: '',
+    judgeTemperature: null, judgeTopP: null, judgeSeed: null,
     testCases: [], paramSweeps: [],
   };
   renderSuites();
@@ -301,6 +302,11 @@ function renderSuiteEditor() {
     <label>Judge Model</label>
     <select id="s-judge"><option value="">— none —</option>${modelOptions}</select>
     <label>Judge Prompt</label><textarea id="s-judgeprompt">${esc(d.judgePrompt)}</textarea>
+    <div class="sub-grid" style="grid-template-columns:repeat(3,1fr);">
+      <label>Judge Temperature</label><input id="s-judgetemp" type="number" step="0.05" value="${d.judgeTemperature ?? ''}" placeholder="default 0">
+      <label>Judge Top-P</label><input id="s-judgetopp" type="number" step="0.05" value="${d.judgeTopP ?? ''}">
+      <label>Judge Seed</label><input id="s-judgeseed" type="number" step="1" value="${d.judgeSeed ?? ''}">
+    </div>
 
     <div class="section-title">Test Cases</div>
     <div id="tc-list"></div>
@@ -329,6 +335,13 @@ function renderSuiteEditor() {
   judge.addEventListener('change', () => { d.judgeModelId = judge.value ? Number(judge.value) : null; });
   const judgePrompt = editor.querySelector('#s-judgeprompt');
   judgePrompt.addEventListener('input', () => { d.judgePrompt = judgePrompt.value; });
+  const numBind = (id, key) => {
+    const el = editor.querySelector('#' + id);
+    el.addEventListener('input', () => { d[key] = el.value === '' ? null : Number(el.value); });
+  };
+  numBind('s-judgetemp', 'judgeTemperature');
+  numBind('s-judgetopp', 'judgeTopP');
+  numBind('s-judgeseed', 'judgeSeed');
 
   editor.querySelector('#add-tc').addEventListener('click', () => {
     d.testCases.push({ name: '', systemPrompt: '', userPrompt: '', sortOrder: d.testCases.length });
@@ -424,6 +437,9 @@ async function saveSuite() {
     expectedOutputMode: d.expectedOutputMode,
     judgeModelId: d.judgeModelId,
     judgePrompt: d.judgePrompt || null,
+    judgeTemperature: d.judgeTemperature ?? null,
+    judgeTopP: d.judgeTopP ?? null,
+    judgeSeed: d.judgeSeed ?? null,
     testCases: d.testCases,
     paramSweeps: d.paramSweeps,
   };

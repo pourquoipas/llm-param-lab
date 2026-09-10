@@ -99,6 +99,9 @@ public class TestSuiteService {
         suite.setExpectedOutputMode(req.expectedOutputMode());
         suite.setJudgeModelId(req.judgeModelId());
         suite.setJudgePrompt(req.judgePrompt());
+        suite.setJudgeTemperature(req.judgeTemperature());
+        suite.setJudgeTopP(req.judgeTopP());
+        suite.setJudgeSeed(req.judgeSeed());
     }
 
     /** Deletes existing children then inserts the request's (replacing the whole set). */
@@ -132,6 +135,7 @@ public class TestSuiteService {
                 suite.getId(), suite.getName(), suite.getDescription(),
                 suite.getExpectedOutput(), suite.getExpectedOutputMode(),
                 suite.getJudgeModelId(), suite.getJudgePrompt(),
+                suite.getJudgeTemperature(), suite.getJudgeTopP(), suite.getJudgeSeed(),
                 suite.getCreatedAt(), suite.getUpdatedAt(),
                 cases, sweeps,
                 resultRepo.findLatestRunAt(suite.getId()).orElse(null));

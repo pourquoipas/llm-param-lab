@@ -445,7 +445,7 @@ Batch of requested improvements. One atomic commit each. Newest first.
 |---|-------------|--------|
 | I1 | New chat per task (test + judge) — no memory carry-over | ✅ done |
 | I2 | More sweep params (chat-level, not model presets) | ✅ done |
-| I3 | Savable judge params (temperature/topP/seed) alongside prompt | ⏳ pending |
+| I3 | Savable judge params (temperature/topP/seed) alongside prompt | ✅ DONE — `test_suite` cols `judge_temperature`/`judge_top_p`/`judge_seed` (mig 003); DTOs+service+UI; `judgeParameters` (provider-aware, temp default 0.0, seed on OpenAI+Ollama) in `evaluateWithJudge`; `TestRunnerServiceJudgeParamsTest` + REST round-trip |
 | I4a | Seed sweep (separate from param sweep) + per-seed grouping | ⏳ pending |
 | I4b | Thinking stats (thinking tokens/time) + input/output t/s | ⏳ pending |
 | I5 | No default token limit (use model default unless in suite) | ⏳ pending |

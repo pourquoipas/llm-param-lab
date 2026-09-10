@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-judge-params
+      author: llmlab
+      comment: "savable judge sampling params (temperature, topP, seed)"
+      changes:
+        - addColumn:
+            tableName: test_suite
+            columns:
+              - column:
+                  name: judge_temperature
+                  type: DOUBLE
+              - column:
+                  name: judge_top_p
+                  type: DOUBLE
+              - column:
+                  name: judge_seed
+                  type: INTEGER

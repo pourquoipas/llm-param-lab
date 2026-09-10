@@ -5,6 +5,7 @@ import com.example.llmlab.config.ModelFactory;
 import com.example.llmlab.domain.EvaluationType;
 import com.example.llmlab.domain.ExpectedOutputMode;
 import com.example.llmlab.domain.ModelConfig;
+import com.example.llmlab.domain.ModelProvider;
 import com.example.llmlab.domain.ParamSweep;
 import com.example.llmlab.domain.RunResult;
 import com.example.llmlab.domain.TestCase;
@@ -23,7 +24,10 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.ollama.OllamaChatRequestParameters;
+import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
 import dev.langchain4j.model.output.TokenUsage;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -268,7 +272,7 @@ public class TestRunnerService {
         String prompt = buildJudgePrompt(suite, testCase, rawOutput);
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(UserMessage.from(prompt)))
-                .parameters(ChatRequestParameters.builder().temperature(0.0).build())
+                .parameters(judgeParameters(suite, judgeModel.getProvider()))
                 .build();
 
         ChatResponse response = judge.chat(request);
@@ -361,6 +365,68 @@ public class TestRunnerService {
             }
         }
         return builder.build();
+    }
+
+    /**
+     * Builds the judge's sampling params from the suite's savable judge params.
+     * Temperature defaults to 0.0 (deterministic) when not set. Uses the judge
+     * model's provider so {@code seed} is applied provider-specifically.
+     */
+    ChatRequestParameters judgeParameters(TestSuite suite, ModelProvider provider) {
+        Double temp = suite.getJudgeTemperature() != null ? suite.getJudgeTemperature() : 0.0;
+        return buildChatParams(provider, temp, suite.getJudgeTopP(), null, null, null, null,
+                suite.getJudgeSeed(), null);
+    }
+
+    /**
+     * Provider-aware sampling params. OpenAI-compatible adds {@code reasoningEffort};
+     * both OpenAI-compatible and Ollama support {@code seed}. Null values are omitted
+     * so the model's own default applies.
+     */
+    private ChatRequestParameters buildChatParams(ModelProvider provider,
+                                                  Double temperature, Double topP, Integer topK,
+                                                  Double frequencyPenalty, Double presencePenalty,
+                                                  Integer maxTokens, Integer seed, String reasoningEffort) {
+        if (provider == ModelProvider.OPENAI_COMPATIBLE) {
+            OpenAiChatRequestParameters.Builder b = OpenAiChatRequestParameters.builder();
+            applyCommon(b, temperature, topP, topK, frequencyPenalty, presencePenalty, maxTokens);
+            if (seed != null) {
+                b.seed(seed);
+            }
+            if (reasoningEffort != null) {
+                b.reasoningEffort(reasoningEffort);
+            }
+            return b.build();
+        }
+        OllamaChatRequestParameters.Builder b = OllamaChatRequestParameters.builder();
+        applyCommon(b, temperature, topP, topK, frequencyPenalty, presencePenalty, maxTokens);
+        if (seed != null) {
+            b.seed(seed);
+        }
+        return b.build();
+    }
+
+    private static <T extends DefaultChatRequestParameters.Builder<T>> void applyCommon(
+            T b, Double temperature, Double topP, Integer topK,
+            Double frequencyPenalty, Double presencePenalty, Integer maxTokens) {
+        if (temperature != null) {
+            b.temperature(temperature);
+        }
+        if (topP != null) {
+            b.topP(topP);
+        }
+        if (topK != null) {
+            b.topK(topK);
+        }
+        if (frequencyPenalty != null) {
+            b.frequencyPenalty(frequencyPenalty);
+        }
+        if (presencePenalty != null) {
+            b.presencePenalty(presencePenalty);
+        }
+        if (maxTokens != null) {
+            b.maxOutputTokens(maxTokens);
+        }
     }
 
     private List<Object> parseValues(String json) {
