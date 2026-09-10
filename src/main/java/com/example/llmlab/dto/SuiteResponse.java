@@ -21,5 +21,6 @@ public record SuiteResponse(
         LocalDateTime updatedAt,
         List<TestCaseDto> testCases,
         List<ParamSweepDto> paramSweeps,
+        List<Integer> seeds,
         LocalDateTime latestRunAt) {
 }

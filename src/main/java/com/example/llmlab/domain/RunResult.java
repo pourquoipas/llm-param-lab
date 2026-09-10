@@ -29,6 +29,9 @@ public class RunResult {
     @Column(name = "suite_id", nullable = false)
     private Long suiteId;
 
+    @Column(name = "seed")
+    private Integer seed;
+
     @Column(name = "test_case_id", nullable = false)
     private Long testCaseId;
 
@@ -88,6 +91,14 @@ public class RunResult {
 
     public void setSuiteId(Long suiteId) {
         this.suiteId = suiteId;
+    }
+
+    public Integer getSeed() {
+        return seed;
+    }
+
+    public void setSeed(Integer seed) {
+        this.seed = seed;
     }
 
     public Long getTestCaseId() {

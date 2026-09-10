@@ -67,8 +67,8 @@ class TestRunnerServiceIsolationTest {
         TestCase taskA = new TestCase(1L, "A", "sysA", "userA", 0);
         TestCase taskB = new TestCase(2L, "B", "sysB", "userB", 1);
 
-        service.runOne(new TestSuite("s"), taskA, Map.of(), MODEL, model);
-        service.runOne(new TestSuite("s"), taskB, Map.of(), MODEL, model);
+        service.runOne(new TestSuite("s"), taskA, Map.of(), 1, MODEL, model);
+        service.runOne(new TestSuite("s"), taskB, Map.of(), 1, MODEL, model);
 
         Assertions.assertEquals(2, model.requests.size());
 
@@ -105,7 +105,7 @@ class TestRunnerServiceIsolationTest {
         // This test documents the contract: the judge request is a single user message.
         RecordingModel model = new RecordingModel();
         TestRunnerService service = service();
-        service.runOne(new TestSuite("s"), new TestCase(1L, "A", null, "q", 0), Map.of(), MODEL, model);
+        service.runOne(new TestSuite("s"), new TestCase(1L, "A", null, "q", 0), Map.of(), 1, MODEL, model);
         // No judge model configured -> SKIPPED, no judge chat issued. Only the test call happened.
         Assertions.assertEquals(1, model.requests.size());
     }

@@ -69,13 +69,14 @@ class TestRunnerServiceResilienceTest {
         };
 
         RunResult result = Assertions.assertDoesNotThrow(
-                () -> service.runOne(plainSuite(), tc(), Map.of(), MODEL, throwing));
+                () -> service.runOne(plainSuite(), tc(), Map.of(), 42, MODEL, throwing));
 
         Assertions.assertEquals(1, saved.size());
         Assertions.assertEquals(EvaluationType.ERROR, result.getEvaluationType());
         Assertions.assertNull(result.getScore());
         Assertions.assertFalse(result.getPassed());
         Assertions.assertTrue(result.getScoreReason().contains("TimeoutException"));
+        Assertions.assertEquals(42, result.getSeed());
     }
 
     @Test
@@ -101,8 +102,8 @@ class TestRunnerServiceResilienceTest {
         };
 
         RunResult a = Assertions.assertDoesNotThrow(() ->
-                service.runOne(plainSuite(), tc(), Map.of("temperature", 0.1), MODEL, flaky));
-        RunResult b = service.runOne(plainSuite(), tc(), Map.of("temperature", 1.0), MODEL, flaky);
+                service.runOne(plainSuite(), tc(), Map.of("temperature", 0.1), 1, MODEL, flaky));
+        RunResult b = service.runOne(plainSuite(), tc(), Map.of("temperature", 1.0), 2, MODEL, flaky);
 
         Assertions.assertEquals(2, saved.size());
         Assertions.assertEquals(EvaluationType.ERROR, a.getEvaluationType());
@@ -112,5 +113,8 @@ class TestRunnerServiceResilienceTest {
         Assertions.assertEquals("ok", b.getRawOutput());
         Assertions.assertEquals(10, b.getTokensIn());
         Assertions.assertEquals(5, b.getTokensOut());
+        // Seed is persisted per run.
+        Assertions.assertEquals(1, a.getSeed());
+        Assertions.assertEquals(2, b.getSeed());
     }
 }

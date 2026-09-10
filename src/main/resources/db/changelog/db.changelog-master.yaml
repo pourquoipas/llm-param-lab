@@ -5,6 +5,8 @@ databaseChangeLog:
       file: db/changelog/changes/002-rename-values-column.yaml
   - include:
       file: db/changelog/changes/003-judge-params.yaml
+  - include:
+      file: db/changelog/changes/004-seeds.yaml
   # Future changes go here, one file per change:
   # - include:
   #     file: db/changelog/changes/003-add-field-x.yaml

@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-test-suite-seeds
+      author: llmlab
+      changes:
+        - addColumn:
+            tableName: test_suite
+            columns:
+              - column:
+                  name: seeds
+                  type: CLOB
+  - changeSet:
+      id: 004-run-result-seed
+      author: llmlab
+      changes:
+        - addColumn:
+            tableName: run_result
+            columns:
+              - column:
+                  name: seed
+                  type: INTEGER

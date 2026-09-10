@@ -113,7 +113,7 @@ class ResultResourceTest {
         try {
             Response response = given().queryParam("suiteId", id)
                     .when().get("/api/results/summary");
-            response.then().statusCode(200).body("testCases", equalTo(List.of()));
+            response.then().statusCode(200).body("seeds", equalTo(List.of()));
             org.junit.jupiter.api.Assertions.assertEquals(id, response.jsonPath().getLong("suiteId"));
         } finally {
             delete(id);

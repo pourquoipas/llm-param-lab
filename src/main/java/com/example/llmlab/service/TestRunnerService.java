@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 
 /**
@@ -75,7 +76,9 @@ public class TestRunnerService {
     }
 
     /**
-     * Runs one suite: every test case × every parameter combination, against the active model.
+     * Runs one suite: for each seed, every test case × every parameter combination, against
+     * the active model. The seed list comes from the suite; when empty, one seed is generated
+     * and used for all runs (and persisted on each result).
      *
      * @throws SuiteAlreadyRunningException if this suite is already running
      * @throws SuiteNotFoundException       if the suite does not exist
@@ -95,11 +98,14 @@ public class TestRunnerService {
 
             ChatModel chatModel = modelFactory.create(model);
             List<Map<String, Object>> combos = cartesianProduct(sweeps);
+            List<Integer> seeds = resolveSeeds(suite);
 
             List<RunResult> results = new ArrayList<>();
-            for (TestCase testCase : testCases) {
-                for (Map<String, Object> combo : combos) {
-                    results.add(runOne(suite, testCase, combo, model, chatModel));
+            for (Integer seed : seeds) {
+                for (TestCase testCase : testCases) {
+                    for (Map<String, Object> combo : combos) {
+                        results.add(runOne(suite, testCase, combo, seed, model, chatModel));
+                    }
                 }
             }
             return results;
@@ -117,7 +123,7 @@ public class TestRunnerService {
         return all;
     }
 
-    RunResult runOne(TestSuite suite, TestCase testCase, Map<String, Object> combo,
+    RunResult runOne(TestSuite suite, TestCase testCase, Map<String, Object> combo, Integer seed,
                      ModelConfig model, ChatModel chatModel) {
         List<ChatMessage> messages = new ArrayList<>();
         if (testCase.getSystemPrompt() != null && !testCase.getSystemPrompt().isBlank()) {
@@ -127,7 +133,7 @@ public class TestRunnerService {
 
         ChatRequest request = ChatRequest.builder()
                 .messages(messages)
-                .parameters(buildParameters(combo))
+                .parameters(buildParameters(combo, model.getProvider(), seed))
                 .build();
 
         long start = System.nanoTime();
@@ -144,7 +150,7 @@ public class TestRunnerService {
             rawOutput = response.aiMessage() != null ? response.aiMessage().text() : null;
             usage = response.tokenUsage();
         } catch (Exception e) {
-            return saveResult(suite, testCase, combo, model, null, null,
+            return saveResult(suite, testCase, combo, seed, model, null, null,
                     (System.nanoTime() - start) / 1_000_000L,
                     null, "execution: " + errorMessage(e), EvaluationType.ERROR, false);
         }
@@ -155,22 +161,23 @@ public class TestRunnerService {
         try {
             evaluation = evaluate(suite, testCase, rawOutput);
         } catch (Exception e) {
-            return saveResult(suite, testCase, combo, model, rawOutput, usage, latencyMs,
+            return saveResult(suite, testCase, combo, seed, model, rawOutput, usage, latencyMs,
                     null, "evaluation: " + errorMessage(e), EvaluationType.ERROR, false);
         }
 
-        return saveResult(suite, testCase, combo, model, rawOutput, usage, latencyMs,
+        return saveResult(suite, testCase, combo, seed, model, rawOutput, usage, latencyMs,
                 evaluation.score(), evaluation.reason(), evaluation.type(), evaluation.passed());
     }
 
     /** Builds and persists a single {@link RunResult} (shared by the success and error paths). */
     private RunResult saveResult(TestSuite suite, TestCase testCase, Map<String, Object> combo,
-                                 ModelConfig model, String rawOutput, TokenUsage usage,
+                                 Integer seed, ModelConfig model, String rawOutput, TokenUsage usage,
                                  long latencyMs, Double score, String scoreReason,
                                  EvaluationType evaluationType, Boolean passed) {
         RunResult result = new RunResult();
         result.setSuiteId(suite.getId());
         result.setTestCaseId(testCase.getId());
+        result.setSeed(seed);
         result.setModelConfigId(model.getId());
         result.setParamsJson(toJson(combo));
         result.setRawOutput(rawOutput);
@@ -352,19 +359,41 @@ public class TestRunnerService {
      * (see the seed sweep). Unknown names are ignored.
      */
     ChatRequestParameters buildParameters(Map<String, Object> combo) {
-        var builder = ChatRequestParameters.builder();
+        return buildParameters(combo, ModelProvider.OPENAI_COMPATIBLE, null);
+    }
+
+    /**
+     * Maps a combo of chat-level params (plus an optional provider-specific {@code seed}) to
+     * {@link ChatRequestParameters} for the given provider. Unknown names are ignored.
+     */
+    ChatRequestParameters buildParameters(Map<String, Object> combo, ModelProvider provider, Integer seed) {
+        Double temperature = null, topP = null, frequencyPenalty = null, presencePenalty = null;
+        Integer topK = null, maxTokens = null;
         for (Map.Entry<String, Object> entry : combo.entrySet()) {
             switch (entry.getKey()) {
-                case "temperature" -> builder.temperature(toDouble(entry.getValue()));
-                case "topP" -> builder.topP(toDouble(entry.getValue()));
-                case "topK" -> builder.topK(toInt(entry.getValue()));
-                case "frequencyPenalty" -> builder.frequencyPenalty(toDouble(entry.getValue()));
-                case "presencePenalty" -> builder.presencePenalty(toDouble(entry.getValue()));
-                case "maxTokens" -> builder.maxOutputTokens(toInt(entry.getValue()));
-                default -> { /* seed / reasoningEffort / unknown: ignored here */ }
+                case "temperature" -> temperature = toDouble(entry.getValue());
+                case "topP" -> topP = toDouble(entry.getValue());
+                case "topK" -> topK = toInt(entry.getValue());
+                case "frequencyPenalty" -> frequencyPenalty = toDouble(entry.getValue());
+                case "presencePenalty" -> presencePenalty = toDouble(entry.getValue());
+                case "maxTokens" -> maxTokens = toInt(entry.getValue());
+                default -> { /* unknown: ignored */ }
             }
         }
-        return builder.build();
+        return buildChatParams(provider, temperature, topP, topK,
+                frequencyPenalty, presencePenalty, maxTokens, seed, null);
+    }
+
+    /**
+     * Resolves the seed list for a run. When the suite has no seeds, a single random seed is
+     * generated and used for all runs (it is persisted on each result).
+     */
+    List<Integer> resolveSeeds(TestSuite suite) {
+        List<Integer> seeds = parseSeeds(suite.getSeeds());
+        if (seeds == null || seeds.isEmpty()) {
+            return List.of(ThreadLocalRandom.current().nextInt(0, Integer.MAX_VALUE));
+        }
+        return seeds;
     }
 
     /**
@@ -435,6 +464,19 @@ public class TestRunnerService {
             });
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid param values JSON: " + json, e);
+        }
+    }
+
+    /** Parses the suite's stored seed JSON array; null/blank/invalid → empty list. */
+    private List<Integer> parseSeeds(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<Integer>>() {
+            });
+        } catch (Exception e) {
+            return List.of();
         }
     }
 

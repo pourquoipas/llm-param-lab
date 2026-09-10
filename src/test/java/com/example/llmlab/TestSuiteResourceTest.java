@@ -233,4 +233,19 @@ class TestSuiteResourceTest {
             delete(id);
         }
     }
+
+    @Test
+    void seedsRoundTrip() {
+        // I4a: the seed-sweep list round-trips through the API.
+        Map<String, Object> body = validBody(uniqueName());
+        body.put("seeds", java.util.List.of(7, 42));
+        Long id = create(body);
+        try {
+            given().when().get("/api/suites/" + id)
+                    .then().statusCode(200)
+                    .body("seeds", equalTo(java.util.List.of(7, 42)));
+        } finally {
+            delete(id);
+        }
+    }
 }

@@ -102,6 +102,7 @@ public class TestSuiteService {
         suite.setJudgeTemperature(req.judgeTemperature());
         suite.setJudgeTopP(req.judgeTopP());
         suite.setJudgeSeed(req.judgeSeed());
+        suite.setSeeds(serializeSeeds(req.seeds()));
     }
 
     /** Deletes existing children then inserts the request's (replacing the whole set). */
@@ -137,8 +138,32 @@ public class TestSuiteService {
                 suite.getJudgeModelId(), suite.getJudgePrompt(),
                 suite.getJudgeTemperature(), suite.getJudgeTopP(), suite.getJudgeSeed(),
                 suite.getCreatedAt(), suite.getUpdatedAt(),
-                cases, sweeps,
+                cases, sweeps, parseSeeds(suite.getSeeds()),
                 resultRepo.findLatestRunAt(suite.getId()).orElse(null));
+    }
+
+    /** Serializes the seed list to a JSON array; null/empty stored as null ("generate one"). */
+    private static String serializeSeeds(List<Integer> seeds) {
+        if (seeds == null || seeds.isEmpty()) {
+            return null;
+        }
+        try {
+            return MAPPER.writeValueAsString(seeds);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Parses a stored seed JSON array; null/blank/invalid → empty list. */
+    private static List<Integer> parseSeeds(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return MAPPER.readerForListOf(Integer.class).readValue(json);
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private void validate(SuiteCreateRequest req) {

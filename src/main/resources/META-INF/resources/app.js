@@ -275,7 +275,7 @@ function newSuite() {
     id: null, name: '', description: '', expectedOutput: '',
     expectedOutputMode: 'NONE', judgeModelId: null, judgePrompt: '',
     judgeTemperature: null, judgeTopP: null, judgeSeed: null,
-    testCases: [], paramSweeps: [],
+    testCases: [], paramSweeps: [], seeds: [], seedsText: '',
   };
   renderSuites();
 }
@@ -316,6 +316,10 @@ function renderSuiteEditor() {
     <div id="sweep-list"></div>
     <button class="btn-sm" id="add-sweep">+ Add Sweep</button>
 
+    <div class="section-title">Seed Sweep</div>
+    <label>Seeds (comma-separated; empty = generate one at run time)</label>
+    <input id="s-seeds" value="${esc((d.seeds || []).join(', '))}" placeholder="e.g. 1, 42, 1337">
+
     <div class="row mt" style="gap:8px;">
       <button class="btn-primary" id="save-suite">Save Suite</button>
       ${isNew ? '' : '<button id="run-suite">Run Suite</button>'}
@@ -342,6 +346,9 @@ function renderSuiteEditor() {
   numBind('s-judgetemp', 'judgeTemperature');
   numBind('s-judgetopp', 'judgeTopP');
   numBind('s-judgeseed', 'judgeSeed');
+  const seedsInput = editor.querySelector('#s-seeds');
+  seedsInput.value = (d.seeds || []).join(', ');
+  seedsInput.addEventListener('input', () => { d.seedsText = seedsInput.value; });
 
   editor.querySelector('#add-tc').addEventListener('click', () => {
     d.testCases.push({ name: '', systemPrompt: '', userPrompt: '', sortOrder: d.testCases.length });
@@ -427,6 +434,13 @@ function inputToValues(input) {
   }).join(', ') + ']';
 }
 
+function parseSeedsText(text) {
+  if (text == null) return null;
+  const parts = String(text).split(',').map((s) => s.trim()).filter((s) => s !== '');
+  if (!parts.length) return null;
+  return parts.map(Number).filter((n) => Number.isFinite(n));
+}
+
 async function saveSuite() {
   const d = state.suiteDraft;
   if (!d.name) { toast('Suite name is required', 'error'); return; }
@@ -442,6 +456,7 @@ async function saveSuite() {
     judgeSeed: d.judgeSeed ?? null,
     testCases: d.testCases,
     paramSweeps: d.paramSweeps,
+    seeds: parseSeedsText(d.seedsText),
   };
   const isNew = d.id == null;
   try {
@@ -553,7 +568,7 @@ async function renderResults() {
     <div class="card" id="res-summary"></div>
     <div class="card">
       <table>
-        <thead><tr><th>Test Case</th><th>Params</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Eval Type</th><th>Date</th></tr></thead>
+        <thead><tr><th>Test Case</th><th>Params</th><th>Seed</th><th>Score</th><th>Passed</th><th>Latency</th><th>Tokens In/Out</th><th>Eval Type</th><th>Date</th></tr></thead>
         <tbody id="res-tbody"></tbody>
       </table>
     </div>`;
@@ -576,22 +591,26 @@ async function renderResults() {
 function renderSummaryCard() {
   const el = document.getElementById('res-summary');
   const summary = state.summary;
-  if (!summary || !summary.testCases || !summary.testCases.length) {
-    el.innerHTML = '<div class="muted">No results yet for this suite. Run it to see the best parameter combination.</div>';
+  if (!summary || !summary.seeds || !summary.seeds.length) {
+    el.innerHTML = '<div class="muted">No results yet for this suite. Run it to see the best parameter combination per seed.</div>';
     return;
   }
-  const rows = summary.testCases.map((tc) => {
-    const best = tc.bestCombo;
-    if (!best) return `<div class="sub-row"><span class="muted">${esc(tc.testCaseName)} — no data</span></div>`;
-    const score = best.avgScore != null ? best.avgScore.toFixed(2) : '—';
-    return `<div class="sub-row">
-      <div class="sub-grid">
-        <div style="font-weight:600; margin-bottom:4px;">${esc(tc.testCaseName)}</div>
-        <div class="muted">Best: ${esc(formatParams(best.paramsJson))} — avg score <strong>${score}</strong></div>
-      </div>
-    </div>`;
+  const sections = summary.seeds.map((s) => {
+    const label = s.seed != null ? 'seed ' + s.seed : 'seed —';
+    const rows = (s.testCases || []).map((tc) => {
+      const best = tc.bestCombo;
+      if (!best) return `<div class="sub-row"><span class="muted">${esc(tc.testCaseName)} — no data</span></div>`;
+      const score = best.avgScore != null ? best.avgScore.toFixed(2) : '—';
+      return `<div class="sub-row">
+        <div class="sub-grid">
+          <div style="font-weight:600; margin-bottom:4px;">${esc(tc.testCaseName)}</div>
+          <div class="muted">Best: ${esc(formatParams(best.paramsJson))} — avg score <strong>${score}</strong></div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="sub-row" style="margin-bottom:12px;"><div style="font-weight:700; margin-bottom:6px;">${label}</div>${rows}</div>`;
   }).join('');
-  el.innerHTML = `<h3>Best param combo</h3>${rows}`;
+  el.innerHTML = `<h3>Best param combo (per seed)</h3>${sections}`;
 }
 
 function renderResultsTable(tcName) {
@@ -602,7 +621,7 @@ function renderResultsTable(tcName) {
     results = results.filter((r) => r.testCaseId === state.resultsTestCaseId);
   }
   if (!results.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center; padding:24px;">No results yet. Run the suite to generate results.</td></tr>';
     return;
   }
   tbody.innerHTML = results.map((r) => {
@@ -612,6 +631,7 @@ function renderResultsTable(tcName) {
       <tr class="clickable" data-id="${r.id}">
         <td>${esc(tcName(r.testCaseId))}</td>
         <td>${esc(formatParams(r.paramsJson))}</td>
+        <td>${r.seed != null ? r.seed : '—'}</td>
         <td><span class="badge badge-score ${scoreClass}">${scoreText}</span></td>
         <td>${r.passed ? '✓' : '✗'}</td>
         <td>${r.latencyMs != null ? r.latencyMs + ' ms' : '—'}</td>

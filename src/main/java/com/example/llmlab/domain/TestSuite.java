@@ -58,6 +58,10 @@ public class TestSuite {
     @Column(name = "judge_seed")
     private Integer judgeSeed;
 
+    @Lob
+    @Column(name = "seeds")
+    private String seeds;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -158,6 +162,14 @@ public class TestSuite {
 
     public void setJudgeSeed(Integer judgeSeed) {
         this.judgeSeed = judgeSeed;
+    }
+
+    public String getSeeds() {
+        return seeds;
+    }
+
+    public void setSeeds(String seeds) {
+        this.seeds = seeds;
     }
 
     public LocalDateTime getCreatedAt() {

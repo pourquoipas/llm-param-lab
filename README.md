@@ -65,9 +65,17 @@ omitted so the model's own default applies.
 **Sweepable parameters:** a suite can sweep any of these chat-level parameters (applied
 per call via `ChatRequestParameters`, *not* pre-set on the model): `temperature`, `topP`,
 `topK`, `frequencyPenalty`, `presencePenalty`, `maxTokens`. Provider-agnostic (works for
-both OpenAI-compatible and Ollama). `seed` (see the seed sweep) and `reasoningEffort` are
-provider-specific and handled separately. If a param is not swept, the model's own default
-is used (no token cap is injected unless `maxTokens` is swept).
+both OpenAI-compatible and Ollama). `seed` is not swept per combo — it is the separate
+seed sweep (see above). `reasoningEffort` is OpenAI-compatible-only and not exposed in the
+UI. If a param is not swept, the model's own default is used (no token cap is injected
+unless `maxTokens` is swept).
+
+**Seed sweep (per-seed runs + comparison):** a suite carries an optional comma-separated
+list of integer seeds. All cases × combos are re-run once per seed (number of seeds = number
+of full runs). An empty list → one seed is generated and applied to every run. Every
+`RunResult` stores its `seed`, and the results summary **groups and compares per seed**.
+The seed is passed to the model (Ollama `seed` / OpenAI-compatible `seed`). UI: "Seed Sweep"
+field in the suite editor; one summary block per seed.
 
 ## Schema versioning
 
@@ -139,28 +147,31 @@ curl -X POST http://localhost:8080/api/models \
 curl -X POST http://localhost:8080/api/suites \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "JSON extraction test",
+    "name": "Code review sweep",
     "description": "Same user prompt, different system prompts and parameters.",
-    "expectedOutput": null,
-    "expectedOutputMode": "NONE",
-    "judgeModelId": 2,
+    "modelId": 1,
     "judgePrompt": null,
-    "testCases": [
+    "judgeParams": { "temperature": {} },
+    "seeds": [42, 7],
+    "cases": [
       {
-        "name": "extract-name-simple",
-        "systemPrompt": "You are a data extraction assistant. Return JSON only.",
-        "userPrompt": "Extract the name from: My name is John.",
-        "sortOrder": 0
+        "systemPrompt": "You are a meticulous code auditor.",
+        "userPrompt": "Review this Java code ...",
+        "expectedOutput": null,
+        "sweeps": { "temperature": [0.1, 1.0] }
       }
-    ],
-    "paramSweeps": [
-      { "paramName": "temperature", "values": "[0.0, 0.3, 0.7]" }
     ]
   }'
 ```
 
-`paramSweeps[].values` is a JSON array string. `paramName` is one of
-`temperature`, `topP`, `maxTokens`.
+Field reference (current `SuiteCreateRequest` / `SuiteResponse`):
+- `name`, `description`, `modelId`, `judgePrompt`
+- `judgeParams` — per-param value maps for the judge, e.g. `{"temperature": {}}`
+- `seeds` — optional list of integer seeds (seed sweep); empty → one generated seed
+- `cases[]` — `systemPrompt`, `userPrompt`, `expectedOutput` (string; empty → judged),
+  `sweeps` — param → list of double values. Sweepable params: `temperature`, `topP`, `topK`,
+  `frequencyPenalty`, `presencePenalty`, `maxTokens`
+- `seed` is not swept per case; it is the suite-level `seeds` list
 
 ## License
 

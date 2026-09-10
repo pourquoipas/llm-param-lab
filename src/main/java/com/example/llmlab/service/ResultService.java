@@ -57,14 +57,29 @@ public class ResultService {
         return q.getResultList();
     }
 
-    /** Builds the per-suite summary: for each test case, the best combo and all combos. */
+    /**
+     * Builds the per-suite summary grouped by seed: for each seed, for each test case,
+     * the best combo and all combos. Comparisons are made at parity of seed.
+     */
     public RunSummaryResponse summary(Long suiteId) {
         suiteRepo.findById(suiteId)
                 .orElseThrow(() -> new SuiteNotFoundException(suiteId));
         List<RunResult> results = resultRepo.findBySuiteId(suiteId);
+        Map<Integer, List<RunResult>> bySeed = results.stream()
+                .collect(Collectors.groupingBy(RunResult::getSeed));
+
+        List<RunSummaryResponse.SeedSummary> seedSummaries = bySeed.entrySet().stream()
+                .map(e -> new RunSummaryResponse.SeedSummary(e.getKey(), buildCaseSummaries(e.getValue())))
+                .sorted(Comparator.comparing(RunSummaryResponse.SeedSummary::seed,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        return new RunSummaryResponse(suiteId, seedSummaries);
+    }
+
+    /** Per-test-case summaries for a set of results (already scoped to one seed). */
+    private List<TestCaseSummary> buildCaseSummaries(List<RunResult> results) {
         Map<Long, List<RunResult>> byCase = results.stream()
                 .collect(Collectors.groupingBy(RunResult::getTestCaseId));
-
         List<TestCaseSummary> caseSummaries = new ArrayList<>();
         for (Map.Entry<Long, List<RunResult>> entry : byCase.entrySet()) {
             TestCase tc = testCaseRepo.findById(entry.getKey()).orElse(null);
@@ -73,7 +88,7 @@ public class ResultService {
         }
         caseSummaries.sort(Comparator.comparing(
                 s -> s.testCaseId() != null ? s.testCaseId() : 0L));
-        return new RunSummaryResponse(suiteId, caseSummaries);
+        return caseSummaries;
     }
 
     private TestCaseSummary toCaseSummary(Long testCaseId, String name, List<RunResult> results) {
