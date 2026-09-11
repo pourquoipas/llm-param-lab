@@ -15,6 +15,8 @@ databaseChangeLog:
       file: db/changelog/changes/007-judge-registry.yaml
   - include:
       file: db/changelog/changes/008-reasoning-effort.yaml
+  - include:
+      file: db/changelog/changes/009-reasoning-capability.yaml
   # Future changes go here, one file per change:
   # - include:
   #     file: db/changelog/changes/003-add-field-x.yaml

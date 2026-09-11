@@ -528,7 +528,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ✅ done |
 | J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ✅ done |
 | J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ✅ done |
-| J8 | Reasoning capability flag + retry: ModelConfig.reasoningCapability, on unsupported error → flag off + retry without effort | ⬜ todo |
+| J8 | Reasoning capability flag + retry: ModelConfig.reasoningCapability, on unsupported error → flag off + retry without effort | ✅ done |
 
 ### J1 — min-p + reasoning budget: NOT implementable
 - **What:** report + document, no code.
@@ -565,10 +565,10 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How (done):** `ModelConfig.reasoningEffort` + migration `008-reasoning-effort.yaml` (registered in master changelog). `ModelConfigRequest`/`Response` carry it; `ModelConfigService` persists it (`normalizeEffort`: blank → null). `TestRunnerService.buildParameters(combo, provider, seed, effort)` + `judgeParameters(judge, provider, topK, effort)` overloads (old 3-arg forms delegate with null); runOne passes `model.getReasoningEffort()`, evaluateWithJudge passes `judgeModel.getReasoningEffort()`; `buildChatParams` applies it OpenAI-only. UI model modal: effort select (default/low/medium/high). **Budget → not implementable** (J1).
 - **Verify (done):** `./mvnw -o clean test` → 110 green. `TestRunnerServiceReasoningEffortTest`: effort present in OpenAI test+judge params, absent for Ollama, null → unset. `updateChangesFields` asserts effort round-trips.
 
-### J8 — Reasoning capability flag + retry
+### J8 — Reasoning capability flag + retry ✅
 - **What:** don't error every call when a model rejects reasoning params.
-- **How:** `ModelConfig.reasoningCapability` (default true) + migration. In the chat/judge call path: on an exception discriminated as "reasoning unsupported" (e.g. message mentions reasoning/reasoning_effort) → set flag false, persist, **retry the same call without reasoningEffort** (both test case and judge). Once flagged, omit effort (no error). Non-reasoning errors → normal ERROR result (no retry).
-- **Verify:** offline suite green; simulated reasoning-unsupported error → flag off + one retry without effort; second run sends no effort.
+- **How (done):** `ModelConfig.reasoningCapability` (default true, nullable=false) + migration `009-reasoning-capability.yaml` (registered in master changelog). `TestRunnerService.chatWithReasoningRetry(chatModel, request, noEffortRequest, model, sentEffort)`: wraps both chat calls — on an exception where an effort was actually sent AND the flag is still true AND `mentionsReasoning(e)` (message contains "reasoning") → `model.setReasoningCapability(false)` + `modelConfigRepository.save(model)` + retry once with `noEffortRequest` (effort omitted). Both call sites gate the effort by capability: runOne passes `model.isReasoningCapability() ? model.getReasoningEffort() : null`, evaluateWithJudge the same for `judgeModel`. Once flagged, effort is omitted (no error). Non-reasoning errors (and a failing retry) propagate → normal ERROR result (no retry, no flag change).
+- **Verify (done):** `./mvnw -o clean test` → 113 green. `TestRunnerServiceReasoningCapabilityTest` (offline, fake effort-rejecting model + capturing model repo): first run → flag off + persisted + retry without effort succeeds (SKIPPED); second run on a flagged model → no effort sent, no save; non-reasoning (timeout) error → ERROR, flag untouched, no save.
 
 ## Bugs
 

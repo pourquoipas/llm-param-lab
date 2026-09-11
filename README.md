@@ -59,6 +59,10 @@ Single page (`index.html` + `app.js`, no build step) with four tabs:
   `ChatRequestParameters` per provider (OpenAI-compatible vs Ollama); nulls are omitted so the
   model's own defaults apply; `seed` is set on both providers; `reasoningEffort` is
   OpenAI-compatible-only.
+- **Reasoning capability flag + retry** — a model's saved `reasoningEffort` is only sent while
+  its `reasoningCapability` flag is on. If the provider rejects it (error mentioning
+  "reasoning"), the flag is turned off (persisted on the model) and the call is retried once
+  without the effort; later calls omit it. Non-reasoning errors are not retried.
 - **Resilient run** — each combo is isolated: a failure (e.g. timeout) is recorded as an
   `ERROR` result and the run continues with the remaining combos.
 - **Seed sweep** — runs are the Cartesian product of seeds × test cases × param combos; the

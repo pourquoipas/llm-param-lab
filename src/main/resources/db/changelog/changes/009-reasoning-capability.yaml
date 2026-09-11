@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-add-reasoning-capability
+      author: llm-param-lab
+      changes:
+        - addColumn:
+            tableName: model_config
+            columns:
+              - column:
+                  name: reasoning_capability
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                      nullable: false

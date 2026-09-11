@@ -49,6 +49,14 @@ public class ModelConfig {
     @Column(name = "reasoning_effort")
     private String reasoningEffort;
 
+    /**
+     * Whether this model accepts reasoning params. Defaults to {@code true}; flipped to
+     * {@code false} (and persisted) the first time the model rejects a reasoning effort, so
+     * subsequent calls omit the effort and stop erroring. See migration 009.
+     */
+    @Column(name = "reasoning_capability", nullable = false)
+    private boolean reasoningCapability = true;
+
     protected ModelConfig() {
         // JPA
     }
@@ -119,5 +127,13 @@ public class ModelConfig {
 
     public void setReasoningEffort(String reasoningEffort) {
         this.reasoningEffort = reasoningEffort;
+    }
+
+    public boolean isReasoningCapability() {
+        return reasoningCapability;
+    }
+
+    public void setReasoningCapability(boolean reasoningCapability) {
+        this.reasoningCapability = reasoningCapability;
     }
 }

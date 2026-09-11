@@ -174,10 +174,17 @@ public class TestRunnerService {
         }
         messages.add(UserMessage.from(testCase.getUserPrompt()));
 
+        // The model's saved reasoning effort is only sent while the model still advertises the
+        // capability. If the provider rejects the effort, the retry below disables it and
+        // persists the flag so every later call omits it.
+        String sentEffort = model.isReasoningCapability() ? model.getReasoningEffort() : null;
         ChatRequest request = ChatRequest.builder()
                 .messages(messages)
-                .parameters(buildParameters(combo, model.getProvider(), seed,
-                        model.getReasoningEffort()))
+                .parameters(buildParameters(combo, model.getProvider(), seed, sentEffort))
+                .build();
+        ChatRequest noEffortRequest = ChatRequest.builder()
+                .messages(messages)
+                .parameters(buildParameters(combo, model.getProvider(), seed, null))
                 .build();
 
         long start = System.nanoTime();
@@ -189,7 +196,8 @@ public class TestRunnerService {
         //    run (a local model can be slow and time out): record an ERROR result and
         //    let the next combo proceed.
         try {
-            ChatResponse response = chatModel.chat(request);
+            ChatResponse response = chatWithReasoningRetry(chatModel, request, noEffortRequest,
+                    model, sentEffort);
             latencyMs = (System.nanoTime() - start) / 1_000_000L;
             rawOutput = response.aiMessage() != null ? response.aiMessage().text() : null;
             usage = response.tokenUsage();
@@ -263,6 +271,33 @@ public class TestRunnerService {
         return (msg != null && !msg.isBlank())
                 ? e.getClass().getSimpleName() + ": " + msg
                 : e.getClass().getSimpleName();
+    }
+
+    /**
+     * Calls the model, and if the provider rejects a saved reasoning effort (the error message
+     * mentions reasoning), disables the capability flag on {@code model} (persisted) and retries
+     * once with {@code noEffortRequest}. Any other error, and a failing retry, propagate to the
+     * caller. {@code sentEffort} is null when no effort was sent, so the retry never fires.
+     */
+    private ChatResponse chatWithReasoningRetry(ChatModel chatModel, ChatRequest request,
+                                               ChatRequest noEffortRequest, ModelConfig model,
+                                               String sentEffort) {
+        try {
+            return chatModel.chat(request);
+        } catch (Exception e) {
+            if (sentEffort != null && model.isReasoningCapability() && mentionsReasoning(e)) {
+                model.setReasoningCapability(false);
+                modelConfigRepository.save(model);
+                return chatModel.chat(noEffortRequest);
+            }
+            throw e;
+        }
+    }
+
+    /** Best-effort: true when the error message points at an unsupported reasoning parameter. */
+    private static boolean mentionsReasoning(Throwable e) {
+        String msg = e == null || e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+        return msg.contains("reasoning");
     }
 
     /**
@@ -361,13 +396,20 @@ public class TestRunnerService {
         ChatModel model = modelFactory.create(judgeModel);
 
         String prompt = buildJudgePrompt(judge, testCase, rawOutput);
+        // Same reasoning-effort gating/retry as the model under test (J8), applied to the
+        // judge's own model config.
+        String sentEffort = judgeModel.isReasoningCapability() ? judgeModel.getReasoningEffort() : null;
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(UserMessage.from(prompt)))
-                .parameters(judgeParameters(judge, judgeModel.getProvider(), topK,
-                        judgeModel.getReasoningEffort()))
+                .parameters(judgeParameters(judge, judgeModel.getProvider(), topK, sentEffort))
+                .build();
+        ChatRequest noEffortRequest = ChatRequest.builder()
+                .messages(List.of(UserMessage.from(prompt)))
+                .parameters(judgeParameters(judge, judgeModel.getProvider(), topK, null))
                 .build();
 
-        ChatResponse response = model.chat(request);
+        ChatResponse response = chatWithReasoningRetry(model, request, noEffortRequest,
+                judgeModel, sentEffort);
         String judgeRaw = response.aiMessage() != null ? response.aiMessage().text() : null;
         JudgeResponse verdict = parseJudgeResponse(judgeRaw);
         if (verdict == null || verdict.score() == null) {
