@@ -521,7 +521,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 
 | # | Step | Status |
 |---|------|--------|
-| J1 | min-p + reasoning budget: mark NOT implementable (doc only) | ⬜ todo |
+| J1 | min-p + reasoning budget: mark NOT implementable (doc only) | ✅ done |
 | J2 | Judge registry: entity + repo + CRUD service + migration (007) + data backfill | ⬜ todo |
 | J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ⬜ todo |
 | J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ⬜ todo |

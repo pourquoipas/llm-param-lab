@@ -107,6 +107,11 @@ seed sweep (see above). `reasoningEffort` is OpenAI-compatible-only and not expo
 UI. If a param is not swept, the model's own default is used (no token cap is injected
 unless `maxTokens` is swept).
 
+**NOT implementable in langchain4j 1.0.1:** `minP` (absent from core `ChatRequestParameters`
+and the OpenAI request parameters) and the **reasoning budget** (no field; only
+`reasoningEffort` exists, OpenAI-compatible). These cannot be swept, injected or set.
+Verified via `javap` on langchain4j-core 1.0.1 + langchain4j-open-ai 1.0.1.
+
 **Raw-JSON injection (NOT supported):** langchain4j 1.0.1 serializes
 `ChatRequestParameters` to a fixed schema — there is no hook to inject arbitrary JSON
 (e.g. `"reasoning": {"effort": "low"}`) into the chat request. The typed

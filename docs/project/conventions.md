@@ -21,7 +21,7 @@
 ## Regola
 - Endpoint REST → sempre in *Resource, mai in *Service
 - UI chiama API → fetch() in app.js, non inline in HTML
-- Parametri LLM → mai nel builder del modello, sempre in ChatRequestParameters a runtime via buildChatParams/applyCommon (provider-aware): temperature/topP/topK/frequencyPenalty/presencePenalty→same, maxTokens→.maxOutputTokens; null → omesso (default modello)
+- Parametri LLM → mai nel builder del modello, sempre in ChatRequestParameters a runtime via buildChatParams/applyCommon (provider-aware): temperature/topP/topK/frequencyPenalty/presencePenalty→same, maxTokens→.maxOutputTokens; null → omesso (default modello); minP + reasoning budget → NOT implementable (langchain4j 1.0.1, javap core+open-ai)
 - Seed sweep → suite.seeds (CLOB JSON array); runSuite: resolveSeeds (vuoto→1 generato) × cases × combos; seed→RunResult.seed + ChatRequestParameters (OpenAI+Ollama); summary raggruppa per seed
 - Token stats → saveResult: reasoningTokens solo OpenAiTokenUsage.outputTokensDetails() (altrimenti null); inputTps/outputTps = throughput(tokens,latencyMs) (null se latency/tokens sconosciuti)
 - Judge → prompt placeholder {{task}}/{{expected}}/{{response}} (expected → "N/A" se null); JSON parse leniente: strip ``` fence → isola {…} → Jackson (fallimento → score=null)
