@@ -89,6 +89,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + tab));
   if (tab === 'models') renderModels();
   else if (tab === 'suites') renderSuites();
+  else if (tab === 'judges') renderJudges();
   else if (tab === 'results') renderResults();
 }
 
@@ -315,6 +316,14 @@ function renderSuiteEditor() {
     <label>Seeds (comma-separated; empty = generate one at run time)</label>
     <input id="s-seeds" value="${esc((d.seeds || []).join(', '))}" placeholder="e.g. 1, 42, 1337">
 
+    ${isNew ? '' : `
+    <div class="section-title">Run override (this run only)</div>
+    <label>Judge (pre-set to suite judge; pick another to override)</label>
+    <select id="run-judge" data-initial="${d.judgeId ?? ''}"><option value="">— suite strategy (no override) —</option>${judgeOptions}</select>
+    <label>topK (optional; applied on top of judge params)</label>
+    <input id="run-topk" type="number" step="1" min="0" placeholder="model default">
+    `}
+
     <div class="row mt" style="gap:8px;">
       <button class="btn-primary" id="save-suite">Save Suite</button>
       ${isNew ? '' : '<button id="run-suite">Run Suite</button>'}
@@ -458,7 +467,7 @@ async function runSuite() {
   btn.disabled = true;
   showSpinner();
   try {
-    const results = await api('/api/suites/' + d.id + '/run', { method: 'POST' });
+    const results = await api('/api/suites/' + d.id + '/run', { method: 'POST', body: buildRunOverrideBody(d) });
     toast('Run complete: ' + results.length + ' results', 'success');
     state.resultsSuiteId = d.id;
     state.resultsTestCaseId = null;
@@ -470,6 +479,21 @@ async function runSuite() {
   }
 }
 
+// J5: optional run-override body {judgeId?, topK?}. Returns null when the judge select is
+// unchanged (still the pre-set suite judge) and no topK is set — a plain run keeps the
+// suite's own strategy (null body POSTs no body, so no 415). minP is not exposed (J1).
+function buildRunOverrideBody(d) {
+  const judgeSel = document.getElementById('run-judge');
+  const topkInput = document.getElementById('run-topk');
+  let judgeId = null;
+  if (judgeSel && judgeSel.value !== judgeSel.dataset.initial) {
+    judgeId = judgeSel.value ? Number(judgeSel.value) : null;
+  }
+  const topK = topkInput && topkInput.value.trim() !== '' ? Number(topkInput.value) : null;
+  if (judgeId === null && topK === null) return null;
+  return { judgeId, topK };
+}
+
 async function deleteSuite() {
   const d = state.suiteDraft;
   if (!confirm('Delete suite "' + d.name + '"?')) return;
@@ -479,6 +503,112 @@ async function deleteSuite() {
     state.suiteDraft = null;
     state.selectedSuiteId = null;
     renderSuites();
+  } catch (e) { /* toast already shown */ }
+}
+
+// ---- Judges tab (Step J5) --------------------------------------------------
+async function renderJudges() {
+  const panel = document.getElementById('tab-judges');
+  panel.innerHTML = '<div class="placeholder">Loading judges…</div>';
+  try { state.judges = await api('/api/judges'); }
+  catch (e) { panel.innerHTML = '<div class="placeholder">Failed to load judges.</div>'; return; }
+  if (!state.models.length) {
+    try { state.models = await api('/api/models'); } catch (e) { /* ignore */ }
+  }
+  const modelLabel = (id) => {
+    if (id == null) return 'active (default)';
+    const m = state.models.find((x) => x.id === id);
+    return m ? m.name : '#' + id;
+  };
+  const rows = state.judges.map((j) => `
+    <tr>
+      <td>${esc(j.name)}</td>
+      <td>${esc(modelLabel(j.modelId))}</td>
+      <td>${j.temperature != null ? j.temperature : '—'}</td>
+      <td>${j.topP != null ? j.topP : '—'}</td>
+      <td>${j.seed != null ? j.seed : '—'}</td>
+      <td class="actions">
+        <button class="btn-sm" data-act="edit" data-id="${j.id}">Edit</button>
+        <button class="btn-sm btn-danger" data-act="delete" data-id="${j.id}">Delete</button>
+      </td>
+    </tr>`).join('');
+  panel.innerHTML = `
+    <div class="card">
+      <div class="row" style="align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0; flex:1;">Judges</h3>
+        <button class="btn-primary" id="add-judge">Add Judge</button>
+      </div>
+      <table>
+        <thead><tr><th>Name</th><th>Model</th><th>Temp</th><th>topP</th><th>Seed</th><th>Actions</th></tr></thead>
+        <tbody id="judges-tbody">${rows}</tbody>
+      </table>
+    </div>`;
+  panel.querySelector('#add-judge').addEventListener('click', () => openJudgeModal());
+  panel.querySelectorAll('[data-act]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.id);
+      if (btn.dataset.act === 'edit') openJudgeModal(state.judges.find((j) => j.id === id));
+      else if (btn.dataset.act === 'delete') deleteJudge(id);
+    });
+  });
+}
+
+function openJudgeModal(judge) {
+  const isEdit = !!judge;
+  const j = judge || { name: '', modelId: null, prompt: '', temperature: null, topP: null, seed: null };
+  const modelOptions = state.models.map((m) =>
+    `<option value="${m.id}" ${m.id === j.modelId ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+  const { modal, close } = openModal(isEdit ? 'Edit Judge' : 'Add Judge', `
+    <label>Name</label><input id="j-name" value="${esc(j.name)}">
+    <label>Model</label>
+    <select id="j-model"><option value="">active (default)</option>${modelOptions}</select>
+    <label>Prompt ({{task}}, {{expected}}, {{response}})</label><textarea id="j-prompt" rows="6">${esc(j.prompt)}</textarea>
+    <label>Temperature</label><input id="j-temperature" type="number" step="0.1" value="${j.temperature != null ? j.temperature : ''}">
+    <label>topP</label><input id="j-topp" type="number" step="0.1" value="${j.topP != null ? j.topP : ''}">
+    <label>Seed</label><input id="j-seed" type="number" step="1" value="${j.seed != null ? j.seed : ''}">
+  `);
+  const footer = modal.querySelector('.modal-footer');
+  const save = document.createElement('button');
+  save.className = 'btn-primary';
+  save.textContent = 'Save';
+  const cancel = document.createElement('button');
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', close);
+  const num = (id) => {
+    const v = modal.querySelector('#' + id).value.trim();
+    return v === '' ? null : Number(v);
+  };
+  save.addEventListener('click', async () => {
+    const name = modal.querySelector('#j-name').value.trim();
+    if (!name) { toast('Judge name is required', 'error'); return; }
+    const modelSel = modal.querySelector('#j-model');
+    const body = {
+      name,
+      modelId: modelSel.value ? Number(modelSel.value) : null,
+      prompt: modal.querySelector('#j-prompt').value || null,
+      temperature: num('j-temperature'),
+      topP: num('j-topp'),
+      seed: num('j-seed'),
+    };
+    save.disabled = true;
+    try {
+      if (isEdit) await api('/api/judges/' + judge.id, { method: 'PUT', body });
+      else await api('/api/judges', { method: 'POST', body });
+      close();
+      toast(isEdit ? 'Judge updated' : 'Judge created', 'success');
+      renderJudges();
+    } catch (e) { save.disabled = false; }
+  });
+  footer.append(cancel, save);
+}
+
+async function deleteJudge(id) {
+  const j = state.judges.find((x) => x.id === id);
+  if (!confirm('Delete judge "' + (j ? j.name : id) + '"?')) return;
+  try {
+    await api('/api/judges/' + id, { method: 'DELETE' });
+    toast('Judge deleted', 'success');
+    renderJudges();
   } catch (e) { /* toast already shown */ }
 }
 

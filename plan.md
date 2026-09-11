@@ -525,7 +525,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | J2 | Judge registry: entity + repo + CRUD service + /api/judges + migration (007) + data backfill | ✅ done |
 | J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ✅ done |
 | J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ✅ |
-| J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ⬜ todo |
+| J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ✅ done |
 | J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ⬜ todo |
 | J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ⬜ todo |
 | J8 | Reasoning capability flag + retry: ModelConfig.reasoningCapability, on unsupported error → flag off + retry without effort | ⬜ todo |
@@ -550,10 +550,10 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How (done):** `POST /api/suites/{id}/run` reads the body as a raw `String` (a body-less POST — the long-standing form — still works; invalid JSON → 400) → `RunOverrideRequest{judgeId?, topK?}`. `runSuite(suiteId, override)` resolves the override judge **first** (unknown id → 404 before any active-model check or model call). `evaluate(..., overrideJudge, topK)`: override judge wins over expected-output AND the suite judge; else normal strategy. `judgeParameters(judge, provider, topK)`: `topK` applied on top of the judge's saved temp/topP/seed (judge has no savable topK; null → model default). Overloads keep the no-override paths (null) for existing callers/tests.
 - **Verify:** 105 offline tests green, incl. `TestRunnerServiceRunOverrideTest` (topK passthrough OpenAI/Ollama/null; override beats expected-output + topK reaches the judge call) and REST 404 on unknown override judge.
 
-### J5 — UI: Judges tab + run override combo + Param dropdown
+### J5 — UI: Judges tab + run override combo + Param dropdown ✅
 - **What:** manage judges + run-time override in the SPA.
-- **How:** new **Judges** tab (CRUD on JudgeService). Run control: judge `<select>` pre-set to suite judge + `topK` input (minP omitted). Param dropdown already mirrors `VALID_PARAMS` (temperature, topP, topK, frequencyPenalty, presencePenalty, maxTokens) — verify all listed.
-- **Verify:** `node --check` OK; judge select pre-set + override wiring reviewed.
+- **How (done):** `index.html` `Judges` tab + `#tab-judges` panel. `app.js` `switchTab` → `renderJudges()`; `renderJudges`/`openJudgeModal`/`deleteJudge` (J3 REST CRUD). `SWEEP_PARAMS` mirrors `VALID_PARAMS` (6 params) → Param `<select>`. Suite editor "Run override (this run only)" (only when suite exists): `#run-judge` (pre-filled from suite judge) + `#run-topk` → `buildRunOverrideBody(d)` → `runSuite()` posts it to `POST /api/suites/{id}/run` (J4). minP omitted (J1).
+- **Verify (done):** `node --check` OK; `./mvnw -o clean test` → 105 green. Judge select pre-set from suite judge; Param dropdown lists all 6 VALID_PARAMS.
 
 ### J6 — `+ Test case` button: create + associate a code judge
 - **What:** the admin button also provisions a code-review judge.
