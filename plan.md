@@ -526,7 +526,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ✅ done |
 | J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ✅ |
 | J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ✅ done |
-| J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ⬜ todo |
+| J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ✅ done |
 | J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ⬜ todo |
 | J8 | Reasoning capability flag + retry: ModelConfig.reasoningCapability, on unsupported error → flag off + retry without effort | ⬜ todo |
 
@@ -555,10 +555,10 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How (done):** `index.html` `Judges` tab + `#tab-judges` panel. `app.js` `switchTab` → `renderJudges()`; `renderJudges`/`openJudgeModal`/`deleteJudge` (J3 REST CRUD). `SWEEP_PARAMS` mirrors `VALID_PARAMS` (6 params) → Param `<select>`. Suite editor "Run override (this run only)" (only when suite exists): `#run-judge` (pre-filled from suite judge) + `#run-topk` → `buildRunOverrideBody(d)` → `runSuite()` posts it to `POST /api/suites/{id}/run` (J4). minP omitted (J1).
 - **Verify (done):** `node --check` OK; `./mvnw -o clean test` → 105 green. Judge select pre-set from suite judge; Param dropdown lists all 6 VALID_PARAMS.
 
-### J6 — `+ Test case` button: create + associate a code judge
+### J6 — `+ Test case` button: create + associate a code judge ✅
 - **What:** the admin button also provisions a code-review judge.
-- **How:** `AdminService.insertTestCase()`: create the suite (name-unique, idempotent) AND a judge (name-unique, idempotent) with a code/technical-evaluation prompt, associated to the suite. Guard both by name (skip if exists).
-- **Verify:** offline suite green; button idempotent (re-run by name); judge created + associated.
+- **How (done):** `JudgeService` adds `CODE_JUDGE_NAME` ("code evaluation") + `CODE_JUDGE_PROMPT` (code/technical-eval rubric, uses `{{task}}/{{expected}}/{{response}}` → `{"score","reason"}`) + idempotent `ensureCodeJudge()` (name-guarded, temp 0.0). `AdminService.insertTestCase()` now points the "code reviewer" suite at the **code judge** (was the generic one). `SeedData` unchanged (its "JSON extraction test" suite keeps the generic judge).
+- **Verify (done):** `./mvnw -o clean test` → 105 green. `AdminResourceTest.testCaseCreatesSmokeSuite` asserts suite.judgeId == "code evaluation" id AND re-run keeps exactly one code judge.
 
 ### J7 — Model reasoning effort (OpenAI-only)
 - **What:** per-model `reasoningEffort` (low/medium/high), applied when set.

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -42,7 +43,7 @@ class AdminResourceTest {
                 .extract().jsonPath().getLong("id");
 
         assertTrue(defaultModelActive(), "default model should be active after test-case");
-        Integer judgeId = idByName("/api/judges", "all around");
+        Integer judgeId = idByName("/api/judges", "code evaluation");
 
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
@@ -60,6 +61,13 @@ class AdminResourceTest {
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
                 .body("testCases.size()", equalTo(2));
+
+        // The code judge is name-guarded: re-running must not duplicate it.
+        Response judges = given().when().get("/api/judges");
+        judges.then().statusCode(200);
+        long codeJudgeCount = judges.jsonPath().getList("name", String.class).stream()
+                .filter("code evaluation"::equals).count();
+        assertEquals(1, codeJudgeCount, "code evaluation judge should be created exactly once");
     }
 
     /** True if the "default" model is currently the active one. */

@@ -20,6 +20,41 @@ public class JudgeService {
     /** Stable display name of the shared generic judge. */
     public static final String DEFAULT_JUDGE_NAME = "all around";
 
+    /** Stable display name of the code/technical-evaluation judge. */
+    public static final String CODE_JUDGE_NAME = "code evaluation";
+
+    /**
+     * Code/technical-evaluation judge prompt. Uses the standard
+     * {@code {{task}}}/{@code {{expected}}}/{@code {{response}}} placeholders and the
+     * {@code {"score","reason"}} verdict the runner parses.
+     */
+    public static final String CODE_JUDGE_PROMPT = """
+            You are an expert code reviewer evaluating an assistant's response to a programming task.
+            Score the response from 0.0 to 1.0.
+
+            Task given to the assistant:
+            <task>{{task}}</task>
+
+            Expected output (if any):
+            <expected>{{expected}}</expected>
+
+            Assistant's response:
+            <response>{{response}}</response>
+
+            Score criteria (code-focused):
+            - Correctness: does it solve the task? Any bugs, race conditions, edge cases, wrong output?
+            - Robustness: null/empty/exception handling, resource leaks, thread-safety.
+            - Performance: algorithmic complexity, memory, obvious inefficiencies.
+            - Readability: clear, idiomatic, no dead code.
+            - 1.0 = correct, robust, efficient, clean
+            - 0.7-0.9 = correct with minor issues
+            - 0.4-0.6 = partially correct, notable bugs or gaps
+            - 0.1-0.3 = mostly wrong or incomplete
+            - 0.0 = nonsensical, unrunnable, or off-task
+
+            Respond with ONLY a JSON object: {"score": <float>, "reason": "<one sentence>"}
+            """;
+
     @Inject
     JudgeRepository repository;
 
@@ -40,6 +75,20 @@ public class JudgeService {
         return repository.findByName(DEFAULT_JUDGE_NAME).orElseGet(() -> {
             Judge judge = new Judge(DEFAULT_JUDGE_NAME);
             judge.setTemperature(0.0);
+            return repository.save(judge);
+        });
+    }
+
+    /**
+     * Returns the code/technical-evaluation judge, creating it (deterministic 0.0 temperature,
+     * code-focused prompt) if it does not exist yet. Idempotent by name.
+     */
+    @Transactional
+    public Judge ensureCodeJudge() {
+        return repository.findByName(CODE_JUDGE_NAME).orElseGet(() -> {
+            Judge judge = new Judge(CODE_JUDGE_NAME);
+            judge.setTemperature(0.0);
+            judge.setPrompt(CODE_JUDGE_PROMPT);
             return repository.save(judge);
         });
     }

@@ -210,7 +210,8 @@ public class AdminService {
     public TestSuite insertTestCase() {
         ModelConfig model = modelService.ensureDefaultModel();
         modelService.activate(model.getId());
-        Long judgeId = judgeService.ensureDefaultJudge().getId();
+        // The smoke suite is code review, so judge it with the code-evaluation judge (not the generic one).
+        Long judgeId = judgeService.ensureCodeJudge().getId();
 
         TestSuite suite = suiteRepo.findAll().stream()
                 .filter(s -> TEST_SUITE_NAME.equals(s.getName()))
