@@ -1,5 +1,9 @@
 # llm-param-lab
 
+> This project was built to test **Qwen3.8-27B-UD-IQ3_S** in a local setup with
+> **16GB VRAM**, using **GitHub Copilot**. Most of the code is written by an
+> LLM; all decisions were taken, validated and tested by a human.
+
 A tool to test a local (or remote) LLM across multiple prompts and parameter
 combinations, then evaluate each result either against an expected output or via
 a second "judge" LLM. Built with Java 21, Quarkus 3 and Langchain4j 1.x.
