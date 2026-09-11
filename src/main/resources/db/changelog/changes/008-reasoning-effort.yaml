@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-add-reasoning-effort
+      author: llm-param-lab
+      changes:
+        - addColumn:
+            tableName: model_config
+            columns:
+              - column:
+                  name: reasoning_effort
+                  type: VARCHAR(32)

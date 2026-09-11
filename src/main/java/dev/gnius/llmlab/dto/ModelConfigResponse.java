@@ -11,11 +11,12 @@ public record ModelConfigResponse(
         String baseUrl,
         String apiKey,
         String modelName,
-        boolean isActive) {
+        boolean isActive,
+        String reasoningEffort) {
 
     public static ModelConfigResponse from(ModelConfig m) {
         return new ModelConfigResponse(
                 m.getId(), m.getName(), m.getProvider(), m.getBaseUrl(),
-                m.getApiKey(), m.getModelName(), m.isActive());
+                m.getApiKey(), m.getModelName(), m.isActive(), m.getReasoningEffort());
     }
 }

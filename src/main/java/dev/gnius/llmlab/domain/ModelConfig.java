@@ -41,6 +41,14 @@ public class ModelConfig {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = false;
 
+    /**
+     * Optional OpenAI reasoning effort ({@code low}/{@code medium}/{@code high}). Applied only
+     * for {@code OPENAI_COMPATIBLE} models when set; null → the model's own default.
+     * See migration 008.
+     */
+    @Column(name = "reasoning_effort")
+    private String reasoningEffort;
+
     protected ModelConfig() {
         // JPA
     }
@@ -103,5 +111,13 @@ public class ModelConfig {
 
     public void setActive(boolean active) {
         this.isActive = active;
+    }
+
+    public String getReasoningEffort() {
+        return reasoningEffort;
+    }
+
+    public void setReasoningEffort(String reasoningEffort) {
+        this.reasoningEffort = reasoningEffort;
     }
 }

@@ -170,6 +170,13 @@ function openModelModal(model) {
     <label>Base URL</label><input id="f-baseurl" value="${esc(m.baseUrl)}">
     <label>API Key (optional)</label><input id="f-apikey" value="${esc(m.apiKey)}">
     <label>Model Name</label><input id="f-modelname" value="${esc(m.modelName)}">
+    <label>Reasoning effort (OpenAI only)</label>
+    <select id="f-effort">
+      <option value="">(default)</option>
+      <option value="low"${m.reasoningEffort === 'low' ? ' selected' : ''}>low</option>
+      <option value="medium"${m.reasoningEffort === 'medium' ? ' selected' : ''}>medium</option>
+      <option value="high"${m.reasoningEffort === 'high' ? ' selected' : ''}>high</option>
+    </select>
   `);
   const footer = modal.querySelector('.modal-footer');
   const save = document.createElement('button');
@@ -185,6 +192,7 @@ function openModelModal(model) {
       baseUrl: modal.querySelector('#f-baseurl').value.trim(),
       apiKey: modal.querySelector('#f-apikey').value.trim() || null,
       modelName: modal.querySelector('#f-modelname').value.trim(),
+      reasoningEffort: modal.querySelector('#f-effort').value.trim() || null,
     };
     if (!body.name || !body.baseUrl || !body.modelName) { toast('Name, Base URL and Model are required', 'error'); return; }
     save.disabled = true;

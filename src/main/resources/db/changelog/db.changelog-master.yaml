@@ -13,6 +13,8 @@ databaseChangeLog:
       file: db/changelog/changes/006-backfill-seed.yaml
   - include:
       file: db/changelog/changes/007-judge-registry.yaml
+  - include:
+      file: db/changelog/changes/008-reasoning-effort.yaml
   # Future changes go here, one file per change:
   # - include:
   #     file: db/changelog/changes/003-add-field-x.yaml

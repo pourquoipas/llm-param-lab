@@ -527,7 +527,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ✅ |
 | J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ✅ done |
 | J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ✅ done |
-| J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ⬜ todo |
+| J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ✅ done |
 | J8 | Reasoning capability flag + retry: ModelConfig.reasoningCapability, on unsupported error → flag off + retry without effort | ⬜ todo |
 
 ### J1 — min-p + reasoning budget: NOT implementable
@@ -560,10 +560,10 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How (done):** `JudgeService` adds `CODE_JUDGE_NAME` ("code evaluation") + `CODE_JUDGE_PROMPT` (code/technical-eval rubric, uses `{{task}}/{{expected}}/{{response}}` → `{"score","reason"}`) + idempotent `ensureCodeJudge()` (name-guarded, temp 0.0). `AdminService.insertTestCase()` now points the "code reviewer" suite at the **code judge** (was the generic one). `SeedData` unchanged (its "JSON extraction test" suite keeps the generic judge).
 - **Verify (done):** `./mvnw -o clean test` → 105 green. `AdminResourceTest.testCaseCreatesSmokeSuite` asserts suite.judgeId == "code evaluation" id AND re-run keeps exactly one code judge.
 
-### J7 — Model reasoning effort (OpenAI-only)
+### J7 — Model reasoning effort (OpenAI-only) ✅
 - **What:** per-model `reasoningEffort` (low/medium/high), applied when set.
-- **How:** `ModelConfig.reasoningEffort` + migration `008`. `ModelFactory`/`buildChatParams` already thread `reasoningEffort` (OpenAI builder only); pass `model.getReasoningEffort()` for test calls and the judge model's effort for judge calls when the flag allows (J8). **Budget → not implementable** (documented J1).
-- **Verify:** offline suite green; effort set → present in OpenAI request, absent for Ollama.
+- **How (done):** `ModelConfig.reasoningEffort` + migration `008-reasoning-effort.yaml` (registered in master changelog). `ModelConfigRequest`/`Response` carry it; `ModelConfigService` persists it (`normalizeEffort`: blank → null). `TestRunnerService.buildParameters(combo, provider, seed, effort)` + `judgeParameters(judge, provider, topK, effort)` overloads (old 3-arg forms delegate with null); runOne passes `model.getReasoningEffort()`, evaluateWithJudge passes `judgeModel.getReasoningEffort()`; `buildChatParams` applies it OpenAI-only. UI model modal: effort select (default/low/medium/high). **Budget → not implementable** (J1).
+- **Verify (done):** `./mvnw -o clean test` → 110 green. `TestRunnerServiceReasoningEffortTest`: effort present in OpenAI test+judge params, absent for Ollama, null → unset. `updateChangesFields` asserts effort round-trips.
 
 ### J8 — Reasoning capability flag + retry
 - **What:** don't error every call when a model rejects reasoning params.

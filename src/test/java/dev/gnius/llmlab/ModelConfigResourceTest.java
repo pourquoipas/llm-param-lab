@@ -31,7 +31,7 @@ class ModelConfigResourceTest {
     }
 
     private static ModelConfigRequest req(String name) {
-        return new ModelConfigRequest(name, ModelProvider.OLLAMA, "http://localhost:11434", null, "llama3.1");
+        return new ModelConfigRequest(name, ModelProvider.OLLAMA, "http://localhost:11434", null, "llama3.1", null);
     }
 
     private static Long create(String name) {
@@ -79,7 +79,7 @@ class ModelConfigResourceTest {
 
     @Test
     void createWithMissingFieldReturns400() {
-        ModelConfigRequest bad = new ModelConfigRequest("x", ModelProvider.OLLAMA, null, null, "m");
+        ModelConfigRequest bad = new ModelConfigRequest("x", ModelProvider.OLLAMA, null, null, "m", null);
         given().contentType(ContentType.JSON).body(bad)
                 .when().post("/api/models")
                 .then().statusCode(400);
@@ -91,7 +91,7 @@ class ModelConfigResourceTest {
         Long id = create(name);
         try {
             ModelConfigRequest updated = new ModelConfigRequest(name, ModelProvider.OPENAI_COMPATIBLE,
-                    "https://api.openai.com/v1", "key", "gpt-4o-mini");
+                    "https://api.openai.com/v1", "key", "gpt-4o-mini", "high");
             ModelConfigResponse resp = given()
                     .contentType(ContentType.JSON).body(updated)
                     .when().put("/api/models/" + id)
@@ -99,6 +99,7 @@ class ModelConfigResourceTest {
                     .extract().body().as(ModelConfigResponse.class);
             assertEquals(ModelProvider.OPENAI_COMPATIBLE, resp.provider());
             assertEquals("gpt-4o-mini", resp.modelName());
+            assertEquals("high", resp.reasoningEffort());
         } finally {
             delete(id);
         }

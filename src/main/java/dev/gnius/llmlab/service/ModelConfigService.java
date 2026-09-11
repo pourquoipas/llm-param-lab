@@ -55,6 +55,7 @@ public class ModelConfigService {
         }
         ModelConfig model = new ModelConfig(
                 req.name(), req.provider(), req.baseUrl(), req.apiKey(), req.modelName());
+        model.setReasoningEffort(normalizeEffort(req.reasoningEffort()));
         return ModelConfigResponse.from(repository.save(model));
     }
 
@@ -73,6 +74,7 @@ public class ModelConfigService {
         model.setBaseUrl(req.baseUrl());
         model.setApiKey(req.apiKey());
         model.setModelName(req.modelName());
+        model.setReasoningEffort(normalizeEffort(req.reasoningEffort()));
         return ModelConfigResponse.from(repository.save(model));
     }
 
@@ -125,5 +127,14 @@ public class ModelConfigService {
 
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
+    }
+
+    /** Trims the effort value; blank → null (so an empty field means "not set"). */
+    private static String normalizeEffort(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isBlank() ? null : t;
     }
 }

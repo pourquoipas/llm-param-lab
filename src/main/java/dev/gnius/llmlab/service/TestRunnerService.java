@@ -176,7 +176,8 @@ public class TestRunnerService {
 
         ChatRequest request = ChatRequest.builder()
                 .messages(messages)
-                .parameters(buildParameters(combo, model.getProvider(), seed))
+                .parameters(buildParameters(combo, model.getProvider(), seed,
+                        model.getReasoningEffort()))
                 .build();
 
         long start = System.nanoTime();
@@ -362,7 +363,8 @@ public class TestRunnerService {
         String prompt = buildJudgePrompt(judge, testCase, rawOutput);
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(UserMessage.from(prompt)))
-                .parameters(judgeParameters(judge, judgeModel.getProvider(), topK))
+                .parameters(judgeParameters(judge, judgeModel.getProvider(), topK,
+                        judgeModel.getReasoningEffort()))
                 .build();
 
         ChatResponse response = model.chat(request);
@@ -458,14 +460,21 @@ public class TestRunnerService {
      * (see the seed sweep). Unknown names are ignored.
      */
     ChatRequestParameters buildParameters(Map<String, Object> combo) {
-        return buildParameters(combo, ModelProvider.OPENAI_COMPATIBLE, null);
+        return buildParameters(combo, ModelProvider.OPENAI_COMPATIBLE, null, null);
+    }
+
+    /** No-effort form: the model's own default applies (see the {@code reasoningEffort} overload). */
+    ChatRequestParameters buildParameters(Map<String, Object> combo, ModelProvider provider, Integer seed) {
+        return buildParameters(combo, provider, seed, null);
     }
 
     /**
-     * Maps a combo of chat-level params (plus an optional provider-specific {@code seed}) to
-     * {@link ChatRequestParameters} for the given provider. Unknown names are ignored.
+     * Maps a combo of chat-level params (plus an optional provider-specific {@code seed} and an
+     * optional OpenAI {@code reasoningEffort}) to {@link ChatRequestParameters}. Unknown names
+     * are ignored; the effort is applied only for {@code OPENAI_COMPATIBLE} (see buildChatParams).
      */
-    ChatRequestParameters buildParameters(Map<String, Object> combo, ModelProvider provider, Integer seed) {
+    ChatRequestParameters buildParameters(Map<String, Object> combo, ModelProvider provider,
+                                          Integer seed, String reasoningEffort) {
         Double temperature = null, topP = null, frequencyPenalty = null, presencePenalty = null;
         Integer topK = null, maxTokens = null;
         for (Map.Entry<String, Object> entry : combo.entrySet()) {
@@ -480,7 +489,7 @@ public class TestRunnerService {
             }
         }
         return buildChatParams(provider, temperature, topP, topK,
-                frequencyPenalty, presencePenalty, maxTokens, seed, null);
+                frequencyPenalty, presencePenalty, maxTokens, seed, reasoningEffort);
     }
 
     /**
@@ -501,17 +510,24 @@ public class TestRunnerService {
      * model's provider so {@code seed} is applied provider-specifically.
      */
     ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider) {
-        return judgeParameters(judge, provider, null);
+        return judgeParameters(judge, provider, null, null);
+    }
+
+    /** No-effort form: the judge model's own default applies (see the {@code reasoningEffort} overload). */
+    ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider, Integer topK) {
+        return judgeParameters(judge, provider, topK, null);
     }
 
     /**
-     * Full form: {@code topK} (nullable) overrides the judge's topK. The judge entity has no
-     * savable topK, so a null here means "no topK" (the model's own default applies).
+     * Full form: {@code topK} (nullable) overrides the judge's topK and {@code reasoningEffort}
+     * (nullable) is the judge model's saved effort (OpenAI only). The judge entity has no savable
+     * topK, so a null here means "no topK" (the model's own default applies).
      */
-    ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider, Integer topK) {
+    ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider,
+                                         Integer topK, String reasoningEffort) {
         Double temp = judge.getTemperature() != null ? judge.getTemperature() : 0.0;
         return buildChatParams(provider, temp, judge.getTopP(), topK, null, null, null,
-                judge.getSeed(), null);
+                judge.getSeed(), reasoningEffort);
     }
 
     /**
