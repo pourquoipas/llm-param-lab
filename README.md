@@ -26,7 +26,8 @@ when the tables are empty, so restarts never duplicate data.
 The top bar has two admin buttons:
 - **＋ Test case** — inserts the `code reviewer` live suite: one shared code-review user prompt
   (a non-thread-safe `SimpleCache` under 10k req/s) × 2 system personas (`system thinker`,
-  `Audit protocol`) × temperature `[0.1, 1.0]`, judged by the default model.
+  `Audit protocol`) × temperature `[0.1, 1.0]`, judged by the shared `all around` judge
+  (which uses the active model).
 - **Clean DB** — wipes the entire database (all models, suites, and results).
 
 ## Interface (UI)
@@ -35,9 +36,12 @@ Single page (`index.html` + `app.js`, no build step) with four tabs:
 - **Models** — CRUD for `ModelConfig`; one model is flagged *active* (the one that runs and
   judges by default). "Activate" sets the active model.
 - **Suites** — list + create/edit. Editor fields: name/description, expected-output mode and
-  value, judge model/prompt/temperature/topP/seed, a **Seed Sweep** field (comma-separated
-  ints), a test-case list (name/system/user prompts), and a param-sweep list
-  (param name + JSON-array values). **Save** persists and closes; **X/Cancel** discard.
+  value, a **Judge** select (named judges from the registry; empty → the default
+  `all around` judge), a **Seed Sweep** field (comma-separated ints), a test-case list
+  (name/system/user prompts), and a param-sweep list (param name + JSON-array values).
+  **Save** persists and closes; **X/Cancel** discard.
+- **Judges** — CRUD for the judge registry (anagrafica): name, optional pinned model,
+  prompt, temperature, topP, seed. A suite points at one judge by `judgeId`.
 - **Results** — pick a suite (and optionally one test case). Top: "Best param combo (per seed)"
   summary card (one block per seed, best combo + avg score per test case). Below: a results
   table — Test Case, Params, Seed, Score, Passed, Latency, Tokens In/Out, Thinking,
@@ -93,11 +97,14 @@ stateless, single-turn `chat()` call built from a fresh message list — no `Cha
 is wired. A test case (or a judge evaluation) never sees messages from a previous task,
 so results are not contaminated by conversation memory.
 
-**Judge parameters (savable per suite):** judge `temperature` (defaults to **0.0** when
-empty — deterministic), judge `topP`, and judge `seed`. Stored on the suite so different
-domains (logic, data analysis, creative writing) can keep distinct judge configurations.
-Applied provider-aware: `seed` is set on both OpenAI-compatible and Ollama; nulls are
-omitted so the model's own default applies.
+**Judge registry (anagrafica):** judges are first-class named records (`/api/judges`),
+not inline suite fields. Each judge carries `temperature` (defaults to **0.0** when empty —
+deterministic), `topP`, `seed`, an optional pinned `modelId` (null → the active model at
+run time) and a `prompt` (null/blank → the configured `app.default-judge-prompt`). A suite
+points at exactly one judge by `judgeId`; a null/omitted `judgeId` falls back to the shared
+`all around` judge. This lets different domains (logic, data analysis, creative writing)
+keep distinct, reusable judges. Applied provider-aware: `seed` is set on both
+OpenAI-compatible and Ollama; nulls are omitted so the model's own default applies.
 
 **Sweepable parameters:** a suite can sweep any of these chat-level parameters (applied
 per call via `ChatRequestParameters`, *not* pre-set on the model): `temperature`, `topP`,
@@ -175,6 +182,20 @@ Base path: `http://localhost:8080`
 | DELETE | `/api/suites/{id}` | Delete a suite (204) |
 | POST | `/api/suites/{id}/run` | Run the suite, returns results |
 
+### Judges (registry / anagrafica)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/judges` | List judges |
+| GET | `/api/judges/{id}` | Get a judge |
+| POST | `/api/judges` | Create a judge (201; 400 missing name, 409 duplicate name) |
+| PUT | `/api/judges/{id}` | Update a judge (404 unknown, 409 duplicate name) |
+| DELETE | `/api/judges/{id}` | Delete a judge (204; 404 unknown) |
+
+Judge body (`JudgeConfigRequest`): `name` (required, unique), `modelId` (null → active
+model), `prompt` (null/blank → `app.default-judge-prompt`), `temperature` (null → 0.0),
+`topP`, `seed`.
+
 ### Run + Results
 
 | Method | Path | Description |
@@ -234,11 +255,7 @@ curl -X POST http://localhost:8080/api/suites \
     "description": "Same user prompt, different system prompts and parameters.",
     "expectedOutput": null,
     "expectedOutputMode": "JUDGE",
-    "judgeModelId": null,
-    "judgePrompt": null,
-    "judgeTemperature": 0.0,
-    "judgeTopP": null,
-    "judgeSeed": null,
+    "judgeId": null,
     "seeds": [42, 7],
     "testCases": [
       {
@@ -257,10 +274,12 @@ curl -X POST http://localhost:8080/api/suites \
 Field reference (create = `SuiteCreateRequest`, read = `SuiteResponse`):
 - `name`, `description`
 - `expectedOutput` (string) + `expectedOutputMode` — `NONE` | `EXACT` | `CONTAINS` | `JUDGE`.
-  `JUDGE` → evaluated by the judge LLM (uses `judgePrompt` + judge params); `NONE` → `SKIPPED`
-  (no score); `EXACT`/`CONTAINS` → compared against `expectedOutput`.
-- `judgeModelId` — null → use the active model as judge; `judgePrompt`; `judgeTemperature`
-  (null → 0.0), `judgeTopP`, `judgeSeed` (null → judge uses model default)
+  `JUDGE` → evaluated by the suite's judge (the `Judge` record's prompt + params); `NONE` →
+  `SKIPPED` (no score); `EXACT`/`CONTAINS` → compared against `expectedOutput`.
+- `judgeId` — the judge from the registry (`/api/judges`) that evaluates this suite.
+  Null/omitted → the shared `all around` judge. A non-existent `judgeId` is rejected (400).
+  The judge's own `modelId` (null → active model), `prompt` (null → default judge prompt),
+  `temperature` (null → 0.0), `topP` and `seed` are applied at evaluation time.
 - `seeds` — optional list of integer seeds (seed sweep); empty/omitted → one generated seed
 - `testCases[]` — `name`, `systemPrompt`, `userPrompt`, `sortOrder` (`id` is read-only)
 - `paramSweeps[]` — `paramName` + `values` (JSON array string). Sweepable `paramName`:

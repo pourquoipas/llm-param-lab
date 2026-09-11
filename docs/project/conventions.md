@@ -25,9 +25,10 @@
 - Seed sweep → suite.seeds (CLOB JSON array); runSuite: resolveSeeds (vuoto→1 generato) × cases × combos; seed→RunResult.seed + ChatRequestParameters (OpenAI+Ollama); summary raggruppa per seed
 - Token stats → saveResult: reasoningTokens solo OpenAiTokenUsage.outputTokensDetails() (altrimenti null); inputTps/outputTps = throughput(tokens,latencyMs) (null se latency/tokens sconosciuti)
 - Judge → prompt placeholder {{task}}/{{expected}}/{{response}} (expected → "N/A" se null); JSON parse leniente: strip ``` fence → isola {…} → Jackson (fallimento → score=null)
+- Judge registry → suite.judgeId → Judge nominata (anagrafica /api/judges); null → ensureDefaultJudge() "all around"; Judge.modelId null → modello attivo a runtime; Judge.prompt null/blank → app.default-judge-prompt; JudgeService.ensureDefaultJudge() idempotente (temp 0.0)
 - Schema DB → solo Liquibase (mai Hibernate ddl-auto); mai modificare changelog esistenti, sempre nuovo file in db/changelog/changes/
 - REST body → quarkus-rest-jackson (non quarkus-jackson standalone); @Consumes(APPLICATION_JSON) solo sui metodi che leggono body (create/update), mai a livello classe (POST senza body → 415)
-- Suite validation → mode==NONE ⇒ judgeModelId required; mode!=NONE ⇒ expectedOutput required; paramName ∈ VALID_PARAMS (temperature,topP,topK,frequencyPenalty,presencePenalty,maxTokens); values = JSON array; judgeParams (temperature/topP/seed) + seeds opzionali
+- Suite validation → mode!=NONE ⇒ expectedOutput required; judgeId (se specificata) deve esistere (altrimenti 400), null → fallback "all around"; paramName ∈ VALID_PARAMS (temperature,topP,topK,frequencyPenalty,presencePenalty,maxTokens); values = JSON array; seeds opzionali
 - Suite create/update → replaceChildren: delete testCases+paramSweeps esistenti poi insert (full replace, no JPA cascade)
 - Routing → route suite-scoped in ONE *Resource (overlap cross-resource /api/suites vs /api+/suites/{id}/run → 404 HTML default)
 - Run exceptions → SuiteAlreadyRunning 409, SuiteNotFound 404, NoActiveModel 400 (tutte ApiException)
@@ -35,6 +36,6 @@
 - Error handling → ApiExceptionMapper (ApiException → JSON status) + GenericExceptionMapper (last-resort: WebApplicationException keeps status, else JSON 500)
 - Seed data → seed/SeedData.java @ApplicationScoped, @Transactional onStartup(@Observes StartupEvent); idempotente (solo se tabella vuota via findAll().isEmpty())
 - DTO con id read-only → record *Dto con Long id come primo componente (popolato solo in toResponse, ignorato in create/update che usano accessors)
-- Admin ops → AdminService: clean() wipe in FK order (run_result→test_case→param_sweep→test_suite→model_config); insertTestCase() ensureDefaultModel+activate + create/replace "code reviewer" (shared code-review user prompt × 2 system personas system-thinker/Audit-protocol × temp [0.1,1.0], judge=default)
+- Admin ops → AdminService: clean() wipe in FK order (run_result→test_case→param_sweep→test_suite→model_config); insertTestCase() ensureDefaultModel+activate + create/replace "code reviewer" (shared code-review user prompt × 2 system personas system-thinker/Audit-protocol × temp [0.1,1.0], judgeId=ensureDefaultJudge() "all around")
 - Test "no active model" → ModelConfigService.deactivateAll() prima (400 senza chiamare LLM), restore ensureDefaultModel() in finally (mai dipendere da LLM reale up/busy)
 - Delete risultati + export report → delete: ResultService.deleteById/deleteByIds/deleteBySuite/deleteAll (REST 204); export xlsx/pdf: generator report/ (pure, generate(ReportData)) + ReportService.buildReport → *Resource attachment() con Content-Disposition (400 no suiteId / 404 unknown)

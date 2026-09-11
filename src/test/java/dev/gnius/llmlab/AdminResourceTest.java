@@ -41,13 +41,13 @@ class AdminResourceTest {
                 .then().statusCode(201)
                 .extract().jsonPath().getLong("id");
 
-        Integer defaultModelId = idByName("/api/models", "default");
         assertTrue(defaultModelActive(), "default model should be active after test-case");
+        Integer judgeId = idByName("/api/judges", "all around");
 
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
                 .body("name", equalTo("code reviewer"))
-                .body("judgeModelId", equalTo(defaultModelId))
+                .body("judgeId", equalTo(judgeId))
                 .body("testCases.size()", equalTo(2))
                 .body("testCases[0].name", equalTo("system thinker"))
                 .body("testCases[1].name", equalTo("Audit protocol"))

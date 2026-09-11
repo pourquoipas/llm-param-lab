@@ -1,0 +1,99 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-judge
+      author: llmlab
+      comment: "standalone named judge registry (anagrafica)"
+      changes:
+        - createTable:
+            tableName: judge
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_judge
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_judge_name
+              - column:
+                  name: model_id
+                  type: BIGINT
+              - column:
+                  name: prompt
+                  type: CLOB
+              - column:
+                  name: temperature
+                  type: DOUBLE
+              - column:
+                  name: top_p
+                  type: DOUBLE
+              - column:
+                  name: seed
+                  type: INTEGER
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: judge
+            baseColumnNames: model_id
+            referencedTableName: model_config
+            referencedColumnNames: id
+            constraintName: fk_judge_model
+
+  - changeSet:
+      id: 007-wire-suite-judge
+      author: llmlab
+      comment: "point every suite at a generic 'all around' judge, make judge_id NOT NULL, drop inline judge_* columns"
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO judge (name, model_id, temperature, prompt, top_p, seed, created_at, updated_at)
+              SELECT 'all around',
+                     (SELECT id FROM model_config WHERE name = 'default' LIMIT 1),
+                     0.0, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+              WHERE NOT EXISTS (SELECT 1 FROM judge WHERE name = 'all around')
+        - addColumn:
+            tableName: test_suite
+            columns:
+              - column:
+                  name: judge_id
+                  type: BIGINT
+        - sql:
+            sql: >-
+              UPDATE test_suite
+              SET judge_id = (SELECT id FROM judge WHERE name = 'all around' LIMIT 1)
+        - addNotNullConstraint:
+            tableName: test_suite
+            columnName: judge_id
+        - addForeignKeyConstraint:
+            baseTableName: test_suite
+            baseColumnNames: judge_id
+            referencedTableName: judge
+            referencedColumnNames: id
+            constraintName: fk_test_suite_judge
+        - dropColumn:
+            tableName: test_suite
+            columnName: judge_model_id
+        - dropColumn:
+            tableName: test_suite
+            columnName: judge_prompt
+        - dropColumn:
+            tableName: test_suite
+            columnName: judge_temperature
+        - dropColumn:
+            tableName: test_suite
+            columnName: judge_top_p
+        - dropColumn:
+            tableName: test_suite
+            columnName: judge_seed

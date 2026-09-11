@@ -4,6 +4,7 @@
 const state = {
   activeTab: 'models',
   models: [],
+  judges: [],
   suites: [],
   selectedSuiteId: null,
   suiteDraft: null,
@@ -229,6 +230,7 @@ async function renderSuites() {
   if (!state.models.length) {
     try { state.models = await api('/api/models'); } catch (e) { /* ignore */ }
   }
+  try { state.judges = await api('/api/judges'); } catch (e) { /* ignore */ }
   try { state.suites = await api('/api/suites'); }
   catch (e) { panel.innerHTML = '<div class="placeholder">Failed to load suites.</div>'; return; }
 
@@ -273,8 +275,7 @@ function newSuite() {
   state.selectedSuiteId = null;
   state.suiteDraft = {
     id: null, name: '', description: '', expectedOutput: '',
-    expectedOutputMode: 'NONE', judgeModelId: null, judgePrompt: '',
-    judgeTemperature: null, judgeTopP: null, judgeSeed: null,
+    expectedOutputMode: 'NONE', judgeId: null,
     testCases: [], paramSweeps: [], seeds: [], seedsText: '',
   };
   renderSuites();
@@ -289,8 +290,8 @@ function renderSuiteEditor() {
   }
   const isNew = d.id == null;
   const modes = ['EXACT', 'CONTAINS', 'REGEX', 'NONE'];
-  const modelOptions = state.models.map((m) =>
-    `<option value="${m.id}" ${m.id === d.judgeModelId ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+  const judgeOptions = state.judges.map((j) =>
+    `<option value="${j.id}" ${j.id === d.judgeId ? 'selected' : ''}>${esc(j.name)}</option>`).join('');
 
   editor.innerHTML = `
     <h3>${isNew ? 'New Suite' : 'Suite #' + d.id}</h3>
@@ -299,14 +300,8 @@ function renderSuiteEditor() {
     <label>Expected Output</label><textarea id="s-expected">${esc(d.expectedOutput)}</textarea>
     <label>Expected Output Mode</label>
     <select id="s-mode">${modes.map((m) => `<option ${m === d.expectedOutputMode ? 'selected' : ''}>${m}</option>`).join('')}</select>
-    <label>Judge Model</label>
-    <select id="s-judge"><option value="">— none —</option>${modelOptions}</select>
-    <label>Judge Prompt</label><textarea id="s-judgeprompt">${esc(d.judgePrompt)}</textarea>
-    <div class="sub-grid" style="grid-template-columns:repeat(3,1fr);">
-      <label>Judge Temperature</label><input id="s-judgetemp" type="number" step="0.05" value="${d.judgeTemperature ?? ''}" placeholder="default 0">
-      <label>Judge Top-P</label><input id="s-judgetopp" type="number" step="0.05" value="${d.judgeTopP ?? ''}">
-      <label>Judge Seed</label><input id="s-judgeseed" type="number" step="1" value="${d.judgeSeed ?? ''}">
-    </div>
+    <label>Judge</label>
+    <select id="s-judge"><option value="">— default (all around) —</option>${judgeOptions}</select>
 
     <div class="section-title">Test Cases</div>
     <div id="tc-list"></div>
@@ -336,16 +331,7 @@ function renderSuiteEditor() {
   const mode = editor.querySelector('#s-mode');
   mode.addEventListener('change', () => { d.expectedOutputMode = mode.value; });
   const judge = editor.querySelector('#s-judge');
-  judge.addEventListener('change', () => { d.judgeModelId = judge.value ? Number(judge.value) : null; });
-  const judgePrompt = editor.querySelector('#s-judgeprompt');
-  judgePrompt.addEventListener('input', () => { d.judgePrompt = judgePrompt.value; });
-  const numBind = (id, key) => {
-    const el = editor.querySelector('#' + id);
-    el.addEventListener('input', () => { d[key] = el.value === '' ? null : Number(el.value); });
-  };
-  numBind('s-judgetemp', 'judgeTemperature');
-  numBind('s-judgetopp', 'judgeTopP');
-  numBind('s-judgeseed', 'judgeSeed');
+  judge.addEventListener('change', () => { d.judgeId = judge.value ? Number(judge.value) : null; });
   const seedsInput = editor.querySelector('#s-seeds');
   seedsInput.value = (d.seeds || []).join(', ');
   seedsInput.addEventListener('input', () => { d.seedsText = seedsInput.value; });
@@ -449,11 +435,7 @@ async function saveSuite() {
     description: d.description,
     expectedOutput: d.expectedOutput || null,
     expectedOutputMode: d.expectedOutputMode,
-    judgeModelId: d.judgeModelId,
-    judgePrompt: d.judgePrompt || null,
-    judgeTemperature: d.judgeTemperature ?? null,
-    judgeTopP: d.judgeTopP ?? null,
-    judgeSeed: d.judgeSeed ?? null,
+    judgeId: d.judgeId ?? null,
     testCases: d.testCases,
     paramSweeps: d.paramSweeps,
     seeds: parseSeedsText(d.seedsText),

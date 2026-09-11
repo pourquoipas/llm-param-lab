@@ -8,6 +8,7 @@
 ### ...run resiliente + seed sweep + token stats → project/conventions.md
 ### ...delete risultati + export report (xlsx/pdf) → project/conventions.md
 ### ...classi base e gerarchie → project/base-classes.md
+### ...judge registry/anagrafica (suite.judgeId, /api/judges) → project/conventions.md
 
 ## Regole operative
 - Segui sempre `.github/copilot-instructions.md` (DOC + quarkus project rules)

@@ -34,9 +34,9 @@ public class TestSuiteRepository {
                 .getResultList();
     }
 
-    public List<TestSuite> findByJudgeModelId(Long judgeModelId) {
-        return em.createQuery("select s from TestSuite s where s.judgeModelId = :judgeModelId", TestSuite.class)
-                .setParameter("judgeModelId", judgeModelId)
+    public List<TestSuite> findByJudgeId(Long judgeId) {
+        return em.createQuery("select s from TestSuite s where s.judgeId = :judgeId", TestSuite.class)
+                .setParameter("judgeId", judgeId)
                 .getResultList();
     }
 

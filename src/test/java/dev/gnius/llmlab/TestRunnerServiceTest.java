@@ -2,6 +2,7 @@ package dev.gnius.llmlab;
 
 import dev.gnius.llmlab.domain.EvaluationType;
 import dev.gnius.llmlab.domain.ExpectedOutputMode;
+import dev.gnius.llmlab.domain.Judge;
 import dev.gnius.llmlab.domain.ParamSweep;
 import dev.gnius.llmlab.domain.TestCase;
 import dev.gnius.llmlab.domain.TestSuite;
@@ -73,20 +74,19 @@ class TestRunnerServiceTest {
 
     @Test
     void buildJudgePromptSubstitutesPlaceholders() {
-        TestSuite suite = new TestSuite("s");
-        suite.setJudgePrompt("T={{task}} E={{expected}} R={{response}}");
+        Judge judge = new Judge("all around");
+        judge.setPrompt("T={{task}} E={{expected}} R={{response}}");
         TestCase tc = new TestCase(1L, "c", null, "do the thing", 0);
-        String prompt = service.buildJudgePrompt(suite, tc, "the answer");
+        String prompt = service.buildJudgePrompt(judge, tc, "the answer");
         Assertions.assertEquals("T=do the thing E=N/A R=the answer", prompt);
     }
 
     @Test
     void buildJudgePromptUsesExpectedWhenPresent() {
-        TestSuite suite = new TestSuite("s");
-        suite.setJudgePrompt("E={{expected}}");
-        suite.setExpectedOutput("42");
+        Judge judge = new Judge("all around");
+        judge.setPrompt("E={{expected}}");
         TestCase tc = new TestCase(1L, "c", null, "q", 0);
-        String prompt = service.buildJudgePrompt(suite, tc, "out");
+        String prompt = service.buildJudgePrompt(judge, tc, "out", "42");
         Assertions.assertEquals("E=42", prompt);
     }
 

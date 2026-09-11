@@ -48,8 +48,7 @@ class ResultResourceTest {
         body.put("description", "desc");
         body.put("expectedOutput", "hello");
         body.put("expectedOutputMode", "CONTAINS");
-        body.put("judgeModelId", null);
-        body.put("judgePrompt", null);
+        body.put("judgeId", null);
         body.put("testCases", List.of(
                 Map.of("name", "case1", "systemPrompt", "sys", "userPrompt", "u1", "sortOrder", 0)));
         body.put("paramSweeps", List.of(

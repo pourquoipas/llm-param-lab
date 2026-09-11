@@ -9,6 +9,7 @@ import dev.gnius.llmlab.repository.ModelConfigRepository;
 import dev.gnius.llmlab.repository.ParamSweepRepository;
 import dev.gnius.llmlab.repository.TestCaseRepository;
 import dev.gnius.llmlab.repository.TestSuiteRepository;
+import dev.gnius.llmlab.service.JudgeService;
 import dev.gnius.llmlab.service.ModelConfigService;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,6 +37,8 @@ public class SeedData {
     ParamSweepRepository sweepRepo;
     @Inject
     ModelConfigService modelService;
+    @Inject
+    JudgeService judgeService;
 
     @Transactional
     void onStartup(@Observes StartupEvent event) {
@@ -63,12 +66,12 @@ public class SeedData {
         if (!suiteRepo.findAll().isEmpty()) {
             return;
         }
-        Long judgeId = modelService.ensureDefaultModel().getId();
+        Long judgeId = judgeService.ensureDefaultJudge().getId();
 
         TestSuite suite = new TestSuite("JSON extraction test");
         suite.setDescription("Same user prompt, different system prompts and parameters — all in one run.");
         suite.setExpectedOutputMode(ExpectedOutputMode.NONE);
-        suite.setJudgeModelId(judgeId);
+        suite.setJudgeId(judgeId);
         suiteRepo.save(suite);
         Long id = suite.getId();
 

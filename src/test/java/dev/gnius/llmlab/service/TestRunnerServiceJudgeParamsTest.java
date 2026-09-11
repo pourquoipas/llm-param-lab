@@ -1,7 +1,7 @@
 package dev.gnius.llmlab.service;
 
+import dev.gnius.llmlab.domain.Judge;
 import dev.gnius.llmlab.domain.ModelProvider;
-import dev.gnius.llmlab.domain.TestSuite;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
 import org.junit.jupiter.api.Assertions;
@@ -17,20 +17,20 @@ class TestRunnerServiceJudgeParamsTest {
 
     @Test
     void judgeDefaultsToZeroTemperature() {
-        TestSuite suite = new TestSuite("s");
-        ChatRequestParameters p = service.judgeParameters(suite, ModelProvider.OPENAI_COMPATIBLE);
+        Judge judge = new Judge("all around");
+        ChatRequestParameters p = service.judgeParameters(judge, ModelProvider.OPENAI_COMPATIBLE);
         Assertions.assertEquals(0.0, p.temperature());
         Assertions.assertNull(p.topP());
     }
 
     @Test
     void judgeSavableParamsPassedThrough() {
-        TestSuite suite = new TestSuite("s");
-        suite.setJudgeTemperature(0.3);
-        suite.setJudgeTopP(0.9);
-        suite.setJudgeSeed(42);
+        Judge judge = new Judge("all around");
+        judge.setTemperature(0.3);
+        judge.setTopP(0.9);
+        judge.setSeed(42);
         OpenAiChatRequestParameters p =
-                (OpenAiChatRequestParameters) service.judgeParameters(suite, ModelProvider.OPENAI_COMPATIBLE);
+                (OpenAiChatRequestParameters) service.judgeParameters(judge, ModelProvider.OPENAI_COMPATIBLE);
         Assertions.assertEquals(0.3, p.temperature());
         Assertions.assertEquals(0.9, p.topP());
         Assertions.assertEquals(42, p.seed());
@@ -38,11 +38,11 @@ class TestRunnerServiceJudgeParamsTest {
 
     @Test
     void judgeSeedAppliedForOllamaToo() {
-        TestSuite suite = new TestSuite("s");
-        suite.setJudgeSeed(7);
+        Judge judge = new Judge("all around");
+        judge.setSeed(7);
         dev.langchain4j.model.ollama.OllamaChatRequestParameters p =
                 (dev.langchain4j.model.ollama.OllamaChatRequestParameters)
-                        service.judgeParameters(suite, ModelProvider.OLLAMA);
+                        service.judgeParameters(judge, ModelProvider.OLLAMA);
         Assertions.assertEquals(0.0, p.temperature());
         Assertions.assertEquals(7, p.seed());
     }

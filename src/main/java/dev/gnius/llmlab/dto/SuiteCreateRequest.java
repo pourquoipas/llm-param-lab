@@ -13,11 +13,7 @@ public record SuiteCreateRequest(
         String description,
         String expectedOutput,
         ExpectedOutputMode expectedOutputMode,
-        Long judgeModelId,
-        String judgePrompt,
-        Double judgeTemperature,
-        Double judgeTopP,
-        Integer judgeSeed,
+        Long judgeId,
         List<TestCaseDto> testCases,
         List<ParamSweepDto> paramSweeps,
         List<Integer> seeds) {

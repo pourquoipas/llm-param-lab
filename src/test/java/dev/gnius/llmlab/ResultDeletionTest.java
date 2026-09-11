@@ -7,6 +7,7 @@ import dev.gnius.llmlab.domain.TestSuite;
 import dev.gnius.llmlab.repository.RunResultRepository;
 import dev.gnius.llmlab.repository.TestCaseRepository;
 import dev.gnius.llmlab.repository.TestSuiteRepository;
+import dev.gnius.llmlab.service.JudgeService;
 import dev.gnius.llmlab.service.ResultService;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -33,10 +34,14 @@ class ResultDeletionTest {
     RunResultRepository resultRepo;
     @Inject
     ResultService resultService;
+    @Inject
+    JudgeService judgeService;
 
     /** Creates a suite with 2 test cases; returns [suiteId, tc1Id, tc2Id]. */
     private long[] seedSuite() {
-        TestSuite suite = suiteRepo.save(new TestSuite("del-suite-" + (++seq)));
+        TestSuite suite = new TestSuite("del-suite-" + (++seq));
+        suite.setJudgeId(judgeService.ensureDefaultJudge().getId());
+        suiteRepo.save(suite);
         long tc1 = caseRepo.save(new TestCase(suite.getId(), "tc1", "sys", "u", 0)).getId();
         long tc2 = caseRepo.save(new TestCase(suite.getId(), "tc2", "sys", "u", 1)).getId();
         return new long[]{suite.getId(), tc1, tc2};

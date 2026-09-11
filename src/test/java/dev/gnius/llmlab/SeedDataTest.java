@@ -29,14 +29,14 @@ class SeedDataTest {
 
     @Test
     void seedsJsonExtractionSuite() {
-        Integer defaultModelId = idByName("/api/models", "default");
+        Integer judgeId = idByName("/api/judges", "all around");
         Integer suiteId = idByName("/api/suites", "JSON extraction test");
 
         given().when().get("/api/suites/" + suiteId)
                 .then().statusCode(200)
                 .body("name", equalTo("JSON extraction test"))
                 .body("expectedOutputMode", equalTo("NONE"))
-                .body("judgeModelId", equalTo(defaultModelId))
+                .body("judgeId", equalTo(judgeId))
                 .body("testCases.size()", equalTo(3))
                 .body("paramSweeps.size()", equalTo(2))
                 .body("paramSweeps[0].paramName", equalTo("temperature"))

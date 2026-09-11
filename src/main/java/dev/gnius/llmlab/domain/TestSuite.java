@@ -41,22 +41,9 @@ public class TestSuite {
     @Column(name = "expected_output_mode", nullable = false)
     private ExpectedOutputMode expectedOutputMode = ExpectedOutputMode.NONE;
 
-    @Column(name = "judge_model_id")
-    private Long judgeModelId;
-
-    @Lob
-    @Column(name = "judge_prompt")
-    private String judgePrompt;
-
-    /** Judge temperature. Null → 0.0 (deterministic). */
-    @Column(name = "judge_temperature")
-    private Double judgeTemperature;
-
-    @Column(name = "judge_top_p")
-    private Double judgeTopP;
-
-    @Column(name = "judge_seed")
-    private Integer judgeSeed;
+    /** The judge (registry) used to evaluate this suite's responses. Always set. */
+    @Column(name = "judge_id", nullable = false)
+    private Long judgeId;
 
     @Lob
     @Column(name = "seeds")
@@ -124,44 +111,12 @@ public class TestSuite {
         this.expectedOutputMode = expectedOutputMode;
     }
 
-    public Long getJudgeModelId() {
-        return judgeModelId;
+    public Long getJudgeId() {
+        return judgeId;
     }
 
-    public void setJudgeModelId(Long judgeModelId) {
-        this.judgeModelId = judgeModelId;
-    }
-
-    public String getJudgePrompt() {
-        return judgePrompt;
-    }
-
-    public void setJudgePrompt(String judgePrompt) {
-        this.judgePrompt = judgePrompt;
-    }
-
-    public Double getJudgeTemperature() {
-        return judgeTemperature;
-    }
-
-    public void setJudgeTemperature(Double judgeTemperature) {
-        this.judgeTemperature = judgeTemperature;
-    }
-
-    public Double getJudgeTopP() {
-        return judgeTopP;
-    }
-
-    public void setJudgeTopP(Double judgeTopP) {
-        this.judgeTopP = judgeTopP;
-    }
-
-    public Integer getJudgeSeed() {
-        return judgeSeed;
-    }
-
-    public void setJudgeSeed(Integer judgeSeed) {
-        this.judgeSeed = judgeSeed;
+    public void setJudgeId(Long judgeId) {
+        this.judgeId = judgeId;
     }
 
     public String getSeeds() {

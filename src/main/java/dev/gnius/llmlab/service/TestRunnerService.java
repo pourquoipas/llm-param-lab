@@ -4,6 +4,7 @@ import dev.gnius.llmlab.config.AppConfig;
 import dev.gnius.llmlab.config.ModelFactory;
 import dev.gnius.llmlab.domain.EvaluationType;
 import dev.gnius.llmlab.domain.ExpectedOutputMode;
+import dev.gnius.llmlab.domain.Judge;
 import dev.gnius.llmlab.domain.ModelConfig;
 import dev.gnius.llmlab.domain.ModelProvider;
 import dev.gnius.llmlab.domain.ParamSweep;
@@ -11,6 +12,7 @@ import dev.gnius.llmlab.domain.RunResult;
 import dev.gnius.llmlab.domain.TestCase;
 import dev.gnius.llmlab.domain.TestSuite;
 import dev.gnius.llmlab.dto.JudgeResponse;
+import dev.gnius.llmlab.repository.JudgeRepository;
 import dev.gnius.llmlab.repository.ModelConfigRepository;
 import dev.gnius.llmlab.repository.ParamSweepRepository;
 import dev.gnius.llmlab.repository.RunResultRepository;
@@ -64,6 +66,8 @@ public class TestRunnerService {
     ParamSweepRepository paramSweepRepository;
     @Inject
     RunResultRepository runResultRepository;
+    @Inject
+    JudgeRepository judgeRepository;
     @Inject
     ModelFactory modelFactory;
     @Inject
@@ -246,14 +250,16 @@ public class TestRunnerService {
 
     /**
      * Picks the evaluation strategy.
-     * expectedOutput set → expected-output match; else judgeModelId set → judge LLM call; else SKIPPED.
+     * expectedOutput set → expected-output match; else judgeId set → judge LLM call; else SKIPPED.
      */
     public Evaluation evaluate(TestSuite suite, TestCase testCase, String rawOutput) {
         if (suite.getExpectedOutput() != null) {
             return evaluateExpected(suite, rawOutput);
         }
-        if (suite.getJudgeModelId() != null) {
-            return evaluateWithJudge(suite, testCase, rawOutput);
+        if (suite.getJudgeId() != null) {
+            Judge judge = judgeRepository.findById(suite.getJudgeId())
+                    .orElseThrow(() -> new IllegalStateException("Judge not found: " + suite.getJudgeId()));
+            return evaluateWithJudge(judge, testCase, rawOutput);
         }
         return new Evaluation(null, null, EvaluationType.SKIPPED, null);
     }
@@ -289,21 +295,21 @@ public class TestRunnerService {
     }
 
     /**
-     * Judge-LLM evaluation: builds the judge prompt, calls the judge model at temperature 0,
-     * and parses the JSON verdict. A parse failure yields score=null with a "judge parse error" reason.
+     * Judge-LLM evaluation: resolves the judge's model (pinned model, else the active model),
+     * builds the judge prompt, and parses the JSON verdict. A parse failure yields score=null
+     * with a "judge parse error" reason.
      */
-    Evaluation evaluateWithJudge(TestSuite suite, TestCase testCase, String rawOutput) {
-        ModelConfig judgeModel = modelConfigRepository.findById(suite.getJudgeModelId())
-                .orElseThrow(() -> new IllegalStateException("Judge model not found: " + suite.getJudgeModelId()));
-        ChatModel judge = modelFactory.create(judgeModel);
+    Evaluation evaluateWithJudge(Judge judge, TestCase testCase, String rawOutput) {
+        ModelConfig judgeModel = resolveJudgeModel(judge);
+        ChatModel model = modelFactory.create(judgeModel);
 
-        String prompt = buildJudgePrompt(suite, testCase, rawOutput);
+        String prompt = buildJudgePrompt(judge, testCase, rawOutput);
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(UserMessage.from(prompt)))
-                .parameters(judgeParameters(suite, judgeModel.getProvider()))
+                .parameters(judgeParameters(judge, judgeModel.getProvider()))
                 .build();
 
-        ChatResponse response = judge.chat(request);
+        ChatResponse response = model.chat(request);
         String judgeRaw = response.aiMessage() != null ? response.aiMessage().text() : null;
         JudgeResponse verdict = parseJudgeResponse(judgeRaw);
         if (verdict == null || verdict.score() == null) {
@@ -313,16 +319,32 @@ public class TestRunnerService {
         return new Evaluation(score, verdict.reason(), EvaluationType.JUDGE_LLM, score >= JUDGE_PASS_THRESHOLD);
     }
 
+    /** A judge may pin a model; otherwise the suite's active model evaluates. */
+    ModelConfig resolveJudgeModel(Judge judge) {
+        if (judge.getModelId() != null) {
+            return modelConfigRepository.findById(judge.getModelId())
+                    .orElseThrow(() -> new IllegalStateException("Judge model not found: " + judge.getModelId()));
+        }
+        return modelConfigRepository.findActive()
+                .orElseThrow(() -> new IllegalStateException("No active model for judge: " + judge.getId()));
+    }
+
     /**
      * Pure: builds the judge prompt by substituting {{task}}, {{expected}}, {{response}}
-     * into the suite's judge prompt (falling back to the configured default prompt).
+     * into the judge's prompt (falling back to the configured default prompt).
      */
-    public String buildJudgePrompt(TestSuite suite, TestCase testCase, String rawOutput) {
-        String template = (suite.getJudgePrompt() != null && !suite.getJudgePrompt().isBlank())
-                ? suite.getJudgePrompt()
+    public String buildJudgePrompt(Judge judge, TestCase testCase, String rawOutput) {
+        return buildJudgePrompt(judge, testCase, rawOutput, null);
+    }
+
+    /** Overload with an explicit expected output (the suite's, when available). */
+    public String buildJudgePrompt(Judge judge, TestCase testCase, String rawOutput, String expectedOutput) {
+        String prompt = judge.getPrompt();
+        String template = (prompt != null && !prompt.isBlank())
+                ? prompt
                 : appConfig.getDefaultJudgePrompt();
         String task = testCase.getUserPrompt() == null ? "" : testCase.getUserPrompt();
-        String expected = suite.getExpectedOutput() == null ? "N/A" : suite.getExpectedOutput();
+        String expected = expectedOutput == null ? "N/A" : expectedOutput;
         String response = rawOutput == null ? "" : rawOutput;
         return template
                 .replace("{{task}}", task)
@@ -418,14 +440,14 @@ public class TestRunnerService {
     }
 
     /**
-     * Builds the judge's sampling params from the suite's savable judge params.
+     * Builds the judge's sampling params from the judge's savable params.
      * Temperature defaults to 0.0 (deterministic) when not set. Uses the judge
      * model's provider so {@code seed} is applied provider-specifically.
      */
-    ChatRequestParameters judgeParameters(TestSuite suite, ModelProvider provider) {
-        Double temp = suite.getJudgeTemperature() != null ? suite.getJudgeTemperature() : 0.0;
-        return buildChatParams(provider, temp, suite.getJudgeTopP(), null, null, null, null,
-                suite.getJudgeSeed(), null);
+    ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider) {
+        Double temp = judge.getTemperature() != null ? judge.getTemperature() : 0.0;
+        return buildChatParams(provider, temp, judge.getTopP(), null, null, null, null,
+                judge.getSeed(), null);
     }
 
     /**

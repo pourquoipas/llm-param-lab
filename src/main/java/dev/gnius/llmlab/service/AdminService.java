@@ -184,6 +184,8 @@ public class AdminService {
     ModelConfigRepository modelRepo;
     @Inject
     ModelConfigService modelService;
+    @Inject
+    JudgeService judgeService;
 
     /**
      * Wipes every table in FK order (run_result → test_case → param_sweep → test_suite →
@@ -208,6 +210,7 @@ public class AdminService {
     public TestSuite insertTestCase() {
         ModelConfig model = modelService.ensureDefaultModel();
         modelService.activate(model.getId());
+        Long judgeId = judgeService.ensureDefaultJudge().getId();
 
         TestSuite suite = suiteRepo.findAll().stream()
                 .filter(s -> TEST_SUITE_NAME.equals(s.getName()))
@@ -216,10 +219,10 @@ public class AdminService {
                     TestSuite s = new TestSuite(TEST_SUITE_NAME);
                     s.setDescription("review di codice");
                     s.setExpectedOutputMode(ExpectedOutputMode.NONE);
-                    suiteRepo.save(s);
+                    s.setJudgeId(judgeId);
                     return s;
                 });
-        suite.setJudgeModelId(model.getId());
+        suite.setJudgeId(judgeId);
         suiteRepo.save(suite);
 
         // Full replace of children (no JPA cascade).

@@ -45,6 +45,8 @@ public class TestSuiteService {
     ParamSweepRepository sweepRepo;
     @Inject
     RunResultRepository resultRepo;
+    @Inject
+    JudgeService judgeService;
 
     public List<SuiteResponse> list() {
         return suiteRepo.findAll().stream().map(this::toResponse).toList();
@@ -97,11 +99,7 @@ public class TestSuiteService {
         suite.setDescription(req.description());
         suite.setExpectedOutput(req.expectedOutput());
         suite.setExpectedOutputMode(req.expectedOutputMode());
-        suite.setJudgeModelId(req.judgeModelId());
-        suite.setJudgePrompt(req.judgePrompt());
-        suite.setJudgeTemperature(req.judgeTemperature());
-        suite.setJudgeTopP(req.judgeTopP());
-        suite.setJudgeSeed(req.judgeSeed());
+        suite.setJudgeId(resolveJudgeId(req.judgeId()));
         suite.setSeeds(serializeSeeds(req.seeds()));
     }
 
@@ -135,11 +133,18 @@ public class TestSuiteService {
         return new SuiteResponse(
                 suite.getId(), suite.getName(), suite.getDescription(),
                 suite.getExpectedOutput(), suite.getExpectedOutputMode(),
-                suite.getJudgeModelId(), suite.getJudgePrompt(),
-                suite.getJudgeTemperature(), suite.getJudgeTopP(), suite.getJudgeSeed(),
+                suite.getJudgeId(),
                 suite.getCreatedAt(), suite.getUpdatedAt(),
                 cases, sweeps, parseSeeds(suite.getSeeds()),
                 resultRepo.findLatestRunAt(suite.getId()).orElse(null));
+    }
+
+    /** A suite must always point at a judge; fall back to the shared "all around" judge. */
+    private Long resolveJudgeId(Long requested) {
+        if (requested != null) {
+            return requested;
+        }
+        return judgeService.ensureDefaultJudge().getId();
     }
 
     /** Serializes the seed list to a JSON array; null/empty stored as null ("generate one"). */
@@ -177,8 +182,8 @@ public class TestSuiteService {
             throw new ValidationException("expectedOutputMode is required");
         }
         if (req.expectedOutputMode() == ExpectedOutputMode.NONE) {
-            if (req.judgeModelId() == null) {
-                throw new ValidationException("judgeModelId is required when expectedOutputMode is NONE");
+            if (req.judgeId() != null && !judgeService.exists(req.judgeId())) {
+                throw new ValidationException("judgeId does not exist: " + req.judgeId());
             }
         } else if (isBlank(req.expectedOutput())) {
             throw new ValidationException(

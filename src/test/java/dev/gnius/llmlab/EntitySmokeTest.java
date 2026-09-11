@@ -2,12 +2,14 @@ package dev.gnius.llmlab;
 
 import dev.gnius.llmlab.domain.EvaluationType;
 import dev.gnius.llmlab.domain.ExpectedOutputMode;
+import dev.gnius.llmlab.domain.Judge;
 import dev.gnius.llmlab.domain.ModelConfig;
 import dev.gnius.llmlab.domain.ModelProvider;
 import dev.gnius.llmlab.domain.ParamSweep;
 import dev.gnius.llmlab.domain.RunResult;
 import dev.gnius.llmlab.domain.TestCase;
 import dev.gnius.llmlab.domain.TestSuite;
+import dev.gnius.llmlab.repository.JudgeRepository;
 import dev.gnius.llmlab.repository.ModelConfigRepository;
 import dev.gnius.llmlab.repository.ParamSweepRepository;
 import dev.gnius.llmlab.repository.RunResultRepository;
@@ -31,6 +33,8 @@ class EntitySmokeTest {
     @Inject
     ModelConfigRepository modelConfigRepo;
     @Inject
+    JudgeRepository judgeRepo;
+    @Inject
     TestSuiteRepository suiteRepo;
     @Inject
     TestCaseRepository testCaseRepo;
@@ -53,20 +57,30 @@ class EntitySmokeTest {
         assertTrue(loadedModel.isActive());
         assertTrue(modelConfigRepo.findActive().isPresent());
 
-        // 2. TestSuite (judgeModelId FK -> model)
+        // 2. Judge (anagrafica)
+        Judge judge = new Judge("smoke-judge");
+        judge.setModelId(model.getId());
+        judge.setTemperature(0.0);
+        judgeRepo.save(judge);
+        assertNotNull(judge.getId());
+        Judge loadedJudge = judgeRepo.findById(judge.getId()).orElseThrow();
+        assertEquals("smoke-judge", loadedJudge.getName());
+        assertEquals(model.getId(), loadedJudge.getModelId());
+
+        // 3. TestSuite (judgeId FK -> judge)
         TestSuite suite = new TestSuite("smoke-suite");
         suite.setExpectedOutput("hello");
         suite.setExpectedOutputMode(ExpectedOutputMode.EXACT);
-        suite.setJudgeModelId(model.getId());
+        suite.setJudgeId(judge.getId());
         suiteRepo.save(suite);
         assertNotNull(suite.getId());
         TestSuite loadedSuite = suiteRepo.findById(suite.getId()).orElseThrow();
         assertEquals("smoke-suite", loadedSuite.getName());
         assertEquals(ExpectedOutputMode.EXACT, loadedSuite.getExpectedOutputMode());
-        assertEquals(model.getId(), loadedSuite.getJudgeModelId());
+        assertEquals(judge.getId(), loadedSuite.getJudgeId());
         assertNotNull(loadedSuite.getCreatedAt());
         assertNotNull(loadedSuite.getUpdatedAt());
-        assertEquals(1, suiteRepo.findByJudgeModelId(model.getId()).size());
+        assertEquals(1, suiteRepo.findByJudgeId(judge.getId()).size());
 
         // 3. TestCase (suiteId FK -> suite)
         TestCase testCase = new TestCase(suite.getId(), "smoke-case", "You are helpful.", "Say hi", 0);

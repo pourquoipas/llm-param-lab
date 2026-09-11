@@ -45,8 +45,7 @@ class TestSuiteResourceTest {
         body.put("description", "desc");
         body.put("expectedOutput", "hello");
         body.put("expectedOutputMode", "CONTAINS");
-        body.put("judgeModelId", null);
-        body.put("judgePrompt", null);
+        body.put("judgeId", null);
         body.put("testCases", List.of(
                 caseMap("case1", "sys", "user1", 0),
                 caseMap("case2", null, "user2", 1)));
@@ -143,11 +142,11 @@ class TestSuiteResourceTest {
     }
 
     @Test
-    void createWithNoneModeButNoJudgeReturns400() {
+    void createWithNonexistentJudgeReturns400() {
         Map<String, Object> body = validBody(uniqueName());
         body.put("expectedOutputMode", "NONE");
         body.put("expectedOutput", null);
-        body.put("judgeModelId", null);
+        body.put("judgeId", 999999L);
         given().contentType(ContentType.JSON).body(body)
                 .when().post("/api/suites")
                 .then().statusCode(400);
@@ -216,21 +215,30 @@ class TestSuiteResourceTest {
     }
 
     @Test
-    void judgeParamsRoundTrip() {
-        // I3: savable judge params round-trip through the API.
-        Map<String, Object> body = validBody(uniqueName());
-        body.put("judgeTemperature", 0.2);
-        body.put("judgeTopP", 0.9);
-        body.put("judgeSeed", 42);
-        Long id = create(body);
+    void judgeIdRoundTrip() {
+        // J2/J3: a suite references a named judge; judgeId round-trips through the API.
+        Map<String, Object> judgeBody = new LinkedHashMap<>();
+        judgeBody.put("name", uniqueName() + "-judge");
+        judgeBody.put("temperature", 0.0);
+        Response judgeResp = given().contentType(ContentType.JSON).body(judgeBody)
+                .when().post("/api/judges");
+        judgeResp.then().statusCode(201);
+        Long judgeId = judgeResp.jsonPath().getLong("id");
         try {
-            given().when().get("/api/suites/" + id)
-                    .then().statusCode(200)
-                    .body("judgeTemperature", equalTo(0.2f))
-                    .body("judgeTopP", equalTo(0.9f))
-                    .body("judgeSeed", equalTo(42));
+            Map<String, Object> body = validBody(uniqueName());
+            body.put("expectedOutputMode", "NONE");
+            body.put("expectedOutput", null);
+            body.put("judgeId", judgeId);
+            Long id = create(body);
+            try {
+                given().when().get("/api/suites/" + id)
+                        .then().statusCode(200)
+                        .body("judgeId", equalTo(judgeId.intValue()));
+            } finally {
+                delete(id);
+            }
         } finally {
-            delete(id);
+            given().when().delete("/api/judges/" + judgeId).then().statusCode(204);
         }
     }
 

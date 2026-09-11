@@ -522,8 +522,8 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | # | Step | Status |
 |---|------|--------|
 | J1 | min-p + reasoning budget: mark NOT implementable (doc only) | ✅ done |
-| J2 | Judge registry: entity + repo + CRUD service + migration (007) + data backfill | ⬜ todo |
-| J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ⬜ todo |
+| J2 | Judge registry: entity + repo + CRUD service + /api/judges + migration (007) + data backfill | ✅ done |
+| J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ✅ done |
 | J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ⬜ todo |
 | J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ⬜ todo |
 | J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ⬜ todo |
@@ -535,15 +535,15 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How:** langchain4j 1.0.1 exposes no `minP` (core nor OpenAI request) and no reasoning budget. Per project rule, mark **not implementable**: note in this section, README (params reference) and `docs/project/conventions.md`.
 - **Verify:** docs updated; no code change; suite stays green.
 
-### J2 — Judge registry (anagrafica) + migration
-- **What:** standalone `judge` entity (reusable, named) + suite FK.
-- **How:** new `domain/Judge` (id, **name** unique, modelId, prompt, temperature, topP, seed), `JudgeRepository`, `JudgeService` (CRUD, name-unique). Migration `007-judge-registry.yaml` (data already exist → NOT NULL upfront would break): 1) create `judge`; 2) backfill one judge per existing suite with inline judge config (name = suite name + " judge"); 3) insert generic judge name **`all around`** (generic prompt + default params); 4) add `suite.judge_id` **NULLABLE**; backfill: suites with inline config → their own judge, else → `all around` id (subquery by name); 5) `ALTER ... MODIFY` `suite.judge_id` **NOT NULL** (and set entity `@NotNull`). Then drop `suite.judge_model_id/judge_prompt/judge_temperature/judge_top_p/judge_seed`. `TestSuite` entity: remove inline judge_*, add `judgeId` (required).
-- **Verify:** migration runs clean on empty + seeded DB; backfill query leaves no suite without a judge; offline suite green.
+### J2 — Judge registry (anagrafica) + migration ✅
+- **What:** standalone `judge` entity (reusable, named) + suite FK + REST CRUD.
+- **How (done):** new `domain/Judge` (id, **name** unique, modelId, prompt, temperature, topP, seed), `JudgeRepository`, `JudgeService` (CRUD, name-unique, `ensureDefaultJudge()` idempotent "all around" temp 0.0, `exists(id)`), `JudgeResource` `/api/judges` (POST 201, DELETE 204, 409 dup name, 404 unknown), `JudgeConfigRequest/Response` DTOs. Migration `007-judge-registry.yaml` (data already exist → NOT NULL upfront would break): 1) create `judge` (+FK model_config); 2) insert generic judge **`all around`** (temp 0.0, model_id = `default` model, guarded `WHERE NOT EXISTS`); 3) add `suite.judge_id` **NULLABLE**; 4) `UPDATE test_suite SET judge_id=(SELECT id FROM judge WHERE name='all around')`; 5) `addNotNullConstraint` on `judge_id` (Liquibase: `columnName` singular, NOT `columnNames`/`column.name`); FK; 6) drop the 5 inline `suite.judge_*` columns. `TestSuite`: remove inline judge_* getters/setters, add `judgeId` (required).
+- **Verify:** migration runs clean on empty + seeded DB; every suite points at a judge; offline suite green (99 tests).
 
-### J3 — Wire judge into suite + runner
+### J3 — Wire judge into suite + runner ✅
 - **What:** suite references a judge; runner evaluates via the registry.
-- **How:** `SuiteCreateRequest` judge_* fields → `judgeId`; `SuiteResponse` returns `judge` (name + params); `TestRunnerService.evaluateWithJudge` loads judge by `suite.getJudgeId()` (params from registry, not suite); `TestSuiteService` create/update set `judgeId` (validate judge exists).
-- **Verify:** offline suite green; create/update suite by judgeId works; runner uses registry judge.
+- **How (done):** `SuiteCreateRequest`/`SuiteResponse` carry `Long judgeId` (id only; UI resolves the name via `GET /api/judges` — no nested object). `TestSuiteService`: `resolveJudgeId` (requested id, else `ensureDefaultJudge().getId()` fallback) + `validate` (non-existent `judgeId` → 400). `TestRunnerService.evaluateWithJudge(Judge, ...)` loads judge by `suite.getJudgeId()`; `resolveJudgeModel(Judge)` (pinned `modelId` else active); `judgeParameters(Judge, provider)` (temp default 0.0, judge topP/seed). `AdminService`/`SeedData` set `judgeId` via `ensureDefaultJudge()`.
+- **Verify:** offline suite green; create/update suite by judgeId works (fallback + 400 validated); runner uses registry judge.
 
 ### J4 — Run-time judge override
 - **What:** pick a different judge + extra params for a single run.
