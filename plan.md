@@ -512,6 +512,64 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How:** README "Results cleanup + export" (4 delete + 2 export endpoints, UI buttons, report content); `docs/project/conventions.md` binary-download pattern (≤40 lines); `docs/project/base-classes.md` ResultService "read + delete" (≤40 lines); `docs/INDEX.md` entry (≤50). Full offline suite green.
 - **Verify:** `./mvnw -o clean test` all green.
 
+## Judge registry + run override + model reasoning
+
+> langchain4j 1.0.1 capability check (verified via javap on langchain4j-core 1.0.1 + open-ai 1.0.1):
+> - `ChatRequestParameters` = temperature, topP, topK, frequencyPenalty, presencePenalty, maxOutputTokens, stop, tools, responseFormat. **NO `minP`.**
+> - `OpenAiChatRequestParameters` adds: maxCompletionTokens, logitBias, parallelToolCalls, seed, user, store, metadata, serviceTier, **reasoningEffort** (String low/medium/high). **NO reasoning budget.**
+> - Consequences: **`minP` → NOT implementable** (sweep + run override); **reasoning budget → NOT implementable**; **reasoning effort → implementable, OpenAI-compatible only** (Ollama builder has no such field).
+
+| # | Step | Status |
+|---|------|--------|
+| J1 | min-p + reasoning budget: mark NOT implementable (doc only) | ⬜ todo |
+| J2 | Judge registry: entity + repo + CRUD service + migration (007) + data backfill | ⬜ todo |
+| J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ⬜ todo |
+| J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ⬜ todo |
+| J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ⬜ todo |
+| J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ⬜ todo |
+| J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ⬜ todo |
+| J8 | Reasoning capability flag + retry: ModelConfig.reasoningCapability, on unsupported error → flag off + retry without effort | ⬜ todo |
+
+### J1 — min-p + reasoning budget: NOT implementable
+- **What:** report + document, no code.
+- **How:** langchain4j 1.0.1 exposes no `minP` (core nor OpenAI request) and no reasoning budget. Per project rule, mark **not implementable**: note in this section, README (params reference) and `docs/project/conventions.md`.
+- **Verify:** docs updated; no code change; suite stays green.
+
+### J2 — Judge registry (anagrafica) + migration
+- **What:** standalone `judge` entity (reusable, named) + suite FK.
+- **How:** new `domain/Judge` (id, **name** unique, modelId, prompt, temperature, topP, seed), `JudgeRepository`, `JudgeService` (CRUD, name-unique). Migration `007-judge-registry.yaml` (data already exist → NOT NULL upfront would break): 1) create `judge`; 2) backfill one judge per existing suite with inline judge config (name = suite name + " judge"); 3) insert generic judge name **`all around`** (generic prompt + default params); 4) add `suite.judge_id` **NULLABLE**; backfill: suites with inline config → their own judge, else → `all around` id (subquery by name); 5) `ALTER ... MODIFY` `suite.judge_id` **NOT NULL** (and set entity `@NotNull`). Then drop `suite.judge_model_id/judge_prompt/judge_temperature/judge_top_p/judge_seed`. `TestSuite` entity: remove inline judge_*, add `judgeId` (required).
+- **Verify:** migration runs clean on empty + seeded DB; backfill query leaves no suite without a judge; offline suite green.
+
+### J3 — Wire judge into suite + runner
+- **What:** suite references a judge; runner evaluates via the registry.
+- **How:** `SuiteCreateRequest` judge_* fields → `judgeId`; `SuiteResponse` returns `judge` (name + params); `TestRunnerService.evaluateWithJudge` loads judge by `suite.getJudgeId()` (params from registry, not suite); `TestSuiteService` create/update set `judgeId` (validate judge exists).
+- **Verify:** offline suite green; create/update suite by judgeId works; runner uses registry judge.
+
+### J4 — Run-time judge override
+- **What:** pick a different judge + extra params for a single run.
+- **How:** `POST /api/suites/{id}/run` accepts optional body `{ judgeId?, topK? }` (minP not implementable). `runSuite(suiteId, override)`: when `override.judgeId` set, evaluate with that registry judge + apply `topK` on top of the judge's saved temp/topP/seed; else suite judge. Pre-set default = suite judge.
+- **Verify:** offline suite green; run with override uses the chosen judge + topK; without body → suite judge.
+
+### J5 — UI: Judges tab + run override combo + Param dropdown
+- **What:** manage judges + run-time override in the SPA.
+- **How:** new **Judges** tab (CRUD on JudgeService). Run control: judge `<select>` pre-set to suite judge + `topK` input (minP omitted). Param dropdown already mirrors `VALID_PARAMS` (temperature, topP, topK, frequencyPenalty, presencePenalty, maxTokens) — verify all listed.
+- **Verify:** `node --check` OK; judge select pre-set + override wiring reviewed.
+
+### J6 — `+ Test case` button: create + associate a code judge
+- **What:** the admin button also provisions a code-review judge.
+- **How:** `AdminService.insertTestCase()`: create the suite (name-unique, idempotent) AND a judge (name-unique, idempotent) with a code/technical-evaluation prompt, associated to the suite. Guard both by name (skip if exists).
+- **Verify:** offline suite green; button idempotent (re-run by name); judge created + associated.
+
+### J7 — Model reasoning effort (OpenAI-only)
+- **What:** per-model `reasoningEffort` (low/medium/high), applied when set.
+- **How:** `ModelConfig.reasoningEffort` + migration `008`. `ModelFactory`/`buildChatParams` already thread `reasoningEffort` (OpenAI builder only); pass `model.getReasoningEffort()` for test calls and the judge model's effort for judge calls when the flag allows (J8). **Budget → not implementable** (documented J1).
+- **Verify:** offline suite green; effort set → present in OpenAI request, absent for Ollama.
+
+### J8 — Reasoning capability flag + retry
+- **What:** don't error every call when a model rejects reasoning params.
+- **How:** `ModelConfig.reasoningCapability` (default true) + migration. In the chat/judge call path: on an exception discriminated as "reasoning unsupported" (e.g. message mentions reasoning/reasoning_effort) → set flag false, persist, **retry the same call without reasoningEffort** (both test case and judge). Once flagged, omit effort (no error). Non-reasoning errors → normal ERROR result (no retry).
+- **Verify:** offline suite green; simulated reasoning-unsupported error → flag off + one retry without effort; second run sends no effort.
+
 ## Bugs
 
 Running log of bug reports and their fixes. Newest first. Each entry: report, status, fix.
