@@ -1,8 +1,11 @@
 package dev.gnius.llmlab.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.gnius.llmlab.domain.RunResult;
+import dev.gnius.llmlab.dto.RunOverrideRequest;
 import dev.gnius.llmlab.dto.SuiteCreateRequest;
 import dev.gnius.llmlab.dto.SuiteResponse;
+import dev.gnius.llmlab.service.ApiException;
 import dev.gnius.llmlab.service.TestRunnerService;
 import dev.gnius.llmlab.service.TestSuiteService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,16 +35,35 @@ public class TestSuiteResource {
     @Inject
     TestRunnerService runner;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @GET
     public List<SuiteResponse> list() {
         return service.list();
     }
 
-    /** Runs the suite synchronously and returns its results. */
+    /**
+     * Runs the suite synchronously and returns its results. An optional JSON body
+     * ({@code {"judgeId": <id>, "topK": <n>}}) overrides the judge and/or topK for this run
+     * only; an empty body uses the suite's own judge. The body is read as a raw string so a
+     * body-less POST (the long-standing call form) still works.
+     */
     @POST
     @Path("/{id}/run")
-    public List<RunResult> run(@PathParam("id") Long id) {
-        return runner.runSuite(id);
+    public List<RunResult> run(@PathParam("id") Long id, String body) {
+        return runner.runSuite(id, parseOverride(body));
+    }
+
+    /** Parses the optional run-override body; blank → null (no override), invalid JSON → 400. */
+    private RunOverrideRequest parseOverride(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(body, RunOverrideRequest.class);
+        } catch (Exception e) {
+            throw new ApiException(400, "Invalid run override body: " + e.getMessage());
+        }
     }
 
     @GET

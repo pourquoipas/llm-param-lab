@@ -86,6 +86,19 @@ class ResultResourceTest {
     }
 
     @Test
+    void runSuiteUnknownOverrideJudgeReturns404() {
+        Long id = create(validBody(uniqueName()));
+        try {
+            // Unknown judge id in the run-time override body → 404 (resolved before any model call).
+            given().contentType(ContentType.JSON).body(Map.of("judgeId", 999999))
+                    .when().post("/api/suites/" + id + "/run")
+                    .then().statusCode(404);
+        } finally {
+            delete(id);
+        }
+    }
+
+    @Test
     void runAllNoActiveModelReturns400() {
         Long id = create(validBody(uniqueName()));
         modelConfigService.deactivateAll();

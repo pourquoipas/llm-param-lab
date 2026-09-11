@@ -180,7 +180,12 @@ Base path: `http://localhost:8080`
 | GET | `/api/suites/{id}` | Get a suite (with test cases + sweeps) |
 | PUT | `/api/suites/{id}` | Update a suite (full replace of test cases + sweeps) |
 | DELETE | `/api/suites/{id}` | Delete a suite (204) |
-| POST | `/api/suites/{id}/run` | Run the suite, returns results |
+| POST | `/api/suites/{id}/run` | Run the suite, returns results (optional body: run-time override, see below) |
+
+Run override body (optional; a body-less POST uses the suite's own judge):
+`{ "judgeId": <id>, "topK": <n> }`. `judgeId` → evaluate this run with that registry judge
+(404 if unknown) instead of the suite's judge/expected-output; `topK` → applied on top of the
+judge's saved temperature/topP/seed. `minP` is not exposed (langchain4j 1.0.1 has no min-p).
 
 ### Judges (registry / anagrafica)
 

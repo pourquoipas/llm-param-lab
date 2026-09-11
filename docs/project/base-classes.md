@@ -8,7 +8,7 @@
 - ModelConfigService → CRUD + activate (isActive)
 - TestSuiteService → CRUD suite + testCases + paramSweeps (cascade)
 - JudgeService → CRUD judge + ensureDefaultJudge() (idempotente "all around", temp 0.0) + exists(id)
-- TestRunnerService → runSuite / runAll (cartesian product + evaluation)
+- TestRunnerService → runSuite(Long) / runSuite(Long, RunOverrideRequest) / runAll (cartesian product + evaluation)
 - SuiteAlreadyRunningException → run già in corso per la suite (→ HTTP 409 in REST)
 - ApiException → base RuntimeException con status HTTP (404/409/400) + sottoclassi *Exception
 - SuiteNotFoundException → suite non trovata (→ HTTP 404)
@@ -32,6 +32,7 @@
 - TestCaseDto → record { name, systemPrompt, userPrompt, sortOrder }
 - ParamSweepDto → record { paramName, values (JSON array string) }
 - RunSummaryResponse → suiteId + List<SeedSummary> (seed → List<TestCaseSummary>: bestCombo + combos: paramsJson, avgScore, min/maxLatency)
+- RunOverrideRequest → record { judgeId, topK } (body opzionale POST run; letto come String in REST, null/blank → no override)
 
 ## Domain
 - ModelConfig → provider, baseUrl, modelName, isActive

@@ -524,7 +524,7 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 | J1 | min-p + reasoning budget: mark NOT implementable (doc only) | ✅ done |
 | J2 | Judge registry: entity + repo + CRUD service + /api/judges + migration (007) + data backfill | ✅ done |
 | J3 | Wire judge registry into suite (REST + DTOs) and runner (evaluate by judgeId) | ✅ done |
-| J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ⬜ todo |
+| J4 | Run-time judge override: run API accepts {judgeId, topK} (minP n/a) | ✅ |
 | J5 | UI: Judges tab + run override combo (pre-set to suite judge) + Param dropdown lists all VALID_PARAMS | ⬜ todo |
 | J6 | `+ Test case` admin button: also create + associate a code-evaluation judge (name-unique, idempotent) | ⬜ todo |
 | J7 | Model reasoning effort: ModelConfig.reasoningEffort + migration (008), applied when set (OpenAI-only) | ⬜ todo |
@@ -545,10 +545,10 @@ Batch: fine-grained result deletion (single / set / suite / all) + results repor
 - **How (done):** `SuiteCreateRequest`/`SuiteResponse` carry `Long judgeId` (id only; UI resolves the name via `GET /api/judges` — no nested object). `TestSuiteService`: `resolveJudgeId` (requested id, else `ensureDefaultJudge().getId()` fallback) + `validate` (non-existent `judgeId` → 400). `TestRunnerService.evaluateWithJudge(Judge, ...)` loads judge by `suite.getJudgeId()`; `resolveJudgeModel(Judge)` (pinned `modelId` else active); `judgeParameters(Judge, provider)` (temp default 0.0, judge topP/seed). `AdminService`/`SeedData` set `judgeId` via `ensureDefaultJudge()`.
 - **Verify:** offline suite green; create/update suite by judgeId works (fallback + 400 validated); runner uses registry judge.
 
-### J4 — Run-time judge override
+### J4 — Run-time judge override ✅
 - **What:** pick a different judge + extra params for a single run.
-- **How:** `POST /api/suites/{id}/run` accepts optional body `{ judgeId?, topK? }` (minP not implementable). `runSuite(suiteId, override)`: when `override.judgeId` set, evaluate with that registry judge + apply `topK` on top of the judge's saved temp/topP/seed; else suite judge. Pre-set default = suite judge.
-- **Verify:** offline suite green; run with override uses the chosen judge + topK; without body → suite judge.
+- **How (done):** `POST /api/suites/{id}/run` reads the body as a raw `String` (a body-less POST — the long-standing form — still works; invalid JSON → 400) → `RunOverrideRequest{judgeId?, topK?}`. `runSuite(suiteId, override)` resolves the override judge **first** (unknown id → 404 before any active-model check or model call). `evaluate(..., overrideJudge, topK)`: override judge wins over expected-output AND the suite judge; else normal strategy. `judgeParameters(judge, provider, topK)`: `topK` applied on top of the judge's saved temp/topP/seed (judge has no savable topK; null → model default). Overloads keep the no-override paths (null) for existing callers/tests.
+- **Verify:** 105 offline tests green, incl. `TestRunnerServiceRunOverrideTest` (topK passthrough OpenAI/Ollama/null; override beats expected-output + topK reaches the judge call) and REST 404 on unknown override judge.
 
 ### J5 — UI: Judges tab + run override combo + Param dropdown
 - **What:** manage judges + run-time override in the SPA.

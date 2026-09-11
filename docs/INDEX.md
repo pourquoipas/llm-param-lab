@@ -9,6 +9,7 @@
 ### ...delete risultati + export report (xlsx/pdf) → project/conventions.md
 ### ...classi base e gerarchie → project/base-classes.md
 ### ...judge registry/anagrafica (suite.judgeId, /api/judges) → project/conventions.md
+### ...run-time judge override (POST run body {judgeId,topK}) → project/conventions.md
 
 ## Regole operative
 - Segui sempre `.github/copilot-instructions.md` (DOC + quarkus project rules)

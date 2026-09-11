@@ -12,6 +12,7 @@ import dev.gnius.llmlab.domain.RunResult;
 import dev.gnius.llmlab.domain.TestCase;
 import dev.gnius.llmlab.domain.TestSuite;
 import dev.gnius.llmlab.dto.JudgeResponse;
+import dev.gnius.llmlab.dto.RunOverrideRequest;
 import dev.gnius.llmlab.repository.JudgeRepository;
 import dev.gnius.llmlab.repository.ModelConfigRepository;
 import dev.gnius.llmlab.repository.ParamSweepRepository;
@@ -90,12 +91,40 @@ public class TestRunnerService {
      * @throws NoActiveModelException       if no model is active
      */
     public List<RunResult> runSuite(Long suiteId) {
+        return runSuite(suiteId, null);
+    }
+
+    /**
+     * Runs the suite with an optional run-time override. When {@code override.judgeId()} is set,
+     * that registry judge (404 if unknown) evaluates every result; otherwise the suite's own
+     * evaluation strategy applies. {@code override.topK()} (nullable) is applied on top of the
+     * judge's saved temperature/topP/seed.
+     *
+     * @throws SuiteAlreadyRunningException if this suite is already running
+     * @throws SuiteNotFoundException       if the suite does not exist
+     * @throws NoActiveModelException       if no model is active
+     * @throws JudgeNotFoundException       if the override references an unknown judge
+     */
+    public List<RunResult> runSuite(Long suiteId, RunOverrideRequest override) {
         if (runningSuites.putIfAbsent(suiteId, Boolean.TRUE) != null) {
             throw new SuiteAlreadyRunningException(suiteId);
         }
         try {
             TestSuite suite = testSuiteRepository.findById(suiteId)
                     .orElseThrow(() -> new SuiteNotFoundException(suiteId));
+
+            // Resolve the run-time override up front so a bad judge id fails (404) before any
+            // other validation or model call.
+            Judge overrideJudge = null;
+            Integer overrideTopK = null;
+            if (override != null) {
+                overrideTopK = override.topK();
+                if (override.judgeId() != null) {
+                    overrideJudge = judgeRepository.findById(override.judgeId())
+                            .orElseThrow(() -> new JudgeNotFoundException(override.judgeId()));
+                }
+            }
+
             List<TestCase> testCases = testCaseRepository.findAllBySuiteId(suiteId);
             List<ParamSweep> sweeps = paramSweepRepository.findAllBySuiteId(suiteId);
             ModelConfig model = modelConfigRepository.findActive()
@@ -109,7 +138,8 @@ public class TestRunnerService {
             for (Integer seed : seeds) {
                 for (TestCase testCase : testCases) {
                     for (Map<String, Object> combo : combos) {
-                        results.add(runOne(suite, testCase, combo, seed, model, chatModel));
+                        results.add(runOne(suite, testCase, combo, seed, model, chatModel,
+                                overrideJudge, overrideTopK));
                     }
                 }
             }
@@ -130,6 +160,14 @@ public class TestRunnerService {
 
     RunResult runOne(TestSuite suite, TestCase testCase, Map<String, Object> combo, Integer seed,
                      ModelConfig model, ChatModel chatModel) {
+        return runOne(suite, testCase, combo, seed, model, chatModel, null, null);
+    }
+
+    /** Full form: {@code overrideJudge} (nullable) and {@code overrideTopK} (nullable) apply to
+     *  this run's evaluation only. */
+    RunResult runOne(TestSuite suite, TestCase testCase, Map<String, Object> combo, Integer seed,
+                     ModelConfig model, ChatModel chatModel, Judge overrideJudge,
+                     Integer overrideTopK) {
         List<ChatMessage> messages = new ArrayList<>();
         if (testCase.getSystemPrompt() != null && !testCase.getSystemPrompt().isBlank()) {
             messages.add(SystemMessage.from(testCase.getSystemPrompt()));
@@ -164,7 +202,7 @@ public class TestRunnerService {
         //    the captured output but still record the combo as ERROR so the run continues.
         Evaluation evaluation;
         try {
-            evaluation = evaluate(suite, testCase, rawOutput);
+            evaluation = evaluate(suite, testCase, rawOutput, overrideJudge, overrideTopK);
         } catch (Exception e) {
             return saveResult(suite, testCase, combo, seed, model, rawOutput, usage, latencyMs,
                     null, "evaluation: " + errorMessage(e), EvaluationType.ERROR, false);
@@ -253,13 +291,26 @@ public class TestRunnerService {
      * expectedOutput set → expected-output match; else judgeId set → judge LLM call; else SKIPPED.
      */
     public Evaluation evaluate(TestSuite suite, TestCase testCase, String rawOutput) {
+        return evaluate(suite, testCase, rawOutput, null, null);
+    }
+
+    /**
+     * Full form with a run-time override. When {@code overrideJudge} is set it wins over both the
+     * expected-output match and the suite's own judge; {@code overrideTopK} (nullable) is applied
+     * on top of the judge's saved parameters.
+     */
+    public Evaluation evaluate(TestSuite suite, TestCase testCase, String rawOutput,
+                               Judge overrideJudge, Integer overrideTopK) {
+        if (overrideJudge != null) {
+            return evaluateWithJudge(overrideJudge, testCase, rawOutput, overrideTopK);
+        }
         if (suite.getExpectedOutput() != null) {
             return evaluateExpected(suite, rawOutput);
         }
         if (suite.getJudgeId() != null) {
             Judge judge = judgeRepository.findById(suite.getJudgeId())
                     .orElseThrow(() -> new IllegalStateException("Judge not found: " + suite.getJudgeId()));
-            return evaluateWithJudge(judge, testCase, rawOutput);
+            return evaluateWithJudge(judge, testCase, rawOutput, null);
         }
         return new Evaluation(null, null, EvaluationType.SKIPPED, null);
     }
@@ -300,13 +351,18 @@ public class TestRunnerService {
      * with a "judge parse error" reason.
      */
     Evaluation evaluateWithJudge(Judge judge, TestCase testCase, String rawOutput) {
+        return evaluateWithJudge(judge, testCase, rawOutput, null);
+    }
+
+    /** Full form: {@code topK} (nullable) overrides the judge's topK for this evaluation only. */
+    Evaluation evaluateWithJudge(Judge judge, TestCase testCase, String rawOutput, Integer topK) {
         ModelConfig judgeModel = resolveJudgeModel(judge);
         ChatModel model = modelFactory.create(judgeModel);
 
         String prompt = buildJudgePrompt(judge, testCase, rawOutput);
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(UserMessage.from(prompt)))
-                .parameters(judgeParameters(judge, judgeModel.getProvider()))
+                .parameters(judgeParameters(judge, judgeModel.getProvider(), topK))
                 .build();
 
         ChatResponse response = model.chat(request);
@@ -445,8 +501,16 @@ public class TestRunnerService {
      * model's provider so {@code seed} is applied provider-specifically.
      */
     ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider) {
+        return judgeParameters(judge, provider, null);
+    }
+
+    /**
+     * Full form: {@code topK} (nullable) overrides the judge's topK. The judge entity has no
+     * savable topK, so a null here means "no topK" (the model's own default applies).
+     */
+    ChatRequestParameters judgeParameters(Judge judge, ModelProvider provider, Integer topK) {
         Double temp = judge.getTemperature() != null ? judge.getTemperature() : 0.0;
-        return buildChatParams(provider, temp, judge.getTopP(), null, null, null, null,
+        return buildChatParams(provider, temp, judge.getTopP(), topK, null, null, null,
                 judge.getSeed(), null);
     }
 
